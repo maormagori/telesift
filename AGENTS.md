@@ -8,7 +8,7 @@ This is a public open-source repository. Treat every tracked file, commit, branc
 
 - Never commit or push secrets or private information. This includes Telegram API credentials and sessions, login codes, passwords, tokens, private keys, real chat/channel/message IDs, non-public usernames, message text, media filenames, private filesystem paths, internal hostnames or URLs, and personal deployment configuration.
 - Use synthetic placeholders in examples, fixtures, tests, logs, screenshots, and bug reports. Do not copy production or personal data and redact incidental private details before adding artifacts.
-- Before every commit, inspect all staged content and run the repository's gitleaks pre-commit hook. Before every push, inspect the outgoing commits and run the repository's gitleaks pre-push hook. A clean secret scan does not replace manual privacy review.
+- Install gitleaks and enable the tracked hooks in each clone with `git config core.hooksPath .githooks`. Before every commit, inspect all staged content and run the pre-commit hook. Before every push, inspect the outgoing commits and run the pre-push hook. A clean secret scan does not replace manual privacy review.
 - Design for the general self-hosted project, not one operator's home stack, hardware, language mix, channel layout, filesystem, network, or preferred media client. Personal needs may motivate a feature, but defaults and interfaces must remain broadly usable and configurable.
 - Do not add a one-user shortcut when the same result can be represented as configuration or a general domain behavior. Record truly deployment-specific values outside the repository.
 - If a proposed change requires real private data to develop or verify, stop and request a sanitized fixture or a safe local-only validation method.
@@ -16,7 +16,7 @@ This is a public open-source repository. Treat every tracked file, commit, branc
 ## Current Status
 
 - Project name: `TeleSift`.
-- Intended public GitHub repository: `maormagori/telesift`.
+- Public GitHub repository: `maormagori/telesift`.
 - Phase: product and architecture discovery.
 - No application code exists yet.
 - Next expected step: resolve the highest-impact loose ends, write a concise v1 specification, then create an implementation plan when the user asks.
