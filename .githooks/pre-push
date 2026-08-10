@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "gitleaks is required before pushing: https://github.com/gitleaks/gitleaks#installing" >&2
+  exit 1
+fi
+
+exec gitleaks git --redact --verbose

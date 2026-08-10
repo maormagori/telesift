@@ -1,0 +1,16 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "telegram-api-hash"
+description = "Telegram API hash"
+regex = '''(?i)telegram[_-]?api[_-]?hash\s*[:=]\s*["']?([a-f0-9]{32})["']?'''
+secretGroup = 1
+keywords = ["telegram_api_hash", "telegram-api-hash"]
+
+[[rules]]
+id = "telegram-session"
+description = "Telegram MTProto session"
+regex = '''(?i)telegram[_-]?session\s*[:=]\s*["']?([a-z0-9+/=_-]{40,})["']?'''
+secretGroup = 1
+keywords = ["telegram_session", "telegram-session"]
