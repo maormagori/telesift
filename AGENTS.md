@@ -13,6 +13,10 @@ This is a public open-source repository. Treat every tracked file, commit, branc
 - Do not add a one-user shortcut when the same result can be represented as configuration or a general domain behavior. Record truly deployment-specific values outside the repository.
 - If a proposed change requires real private data to develop or verify, stop and request a sanitized fixture or a safe local-only validation method.
 
+## Work Tracking
+
+GitHub Issues are the public work record; the private `TeleSift` GitHub Project is the queue. Use the repository `manage-project-work` skill to capture, refine, prioritize, pull, transition, slice, or finish work. Never publish an issue without the user's approval of its sanitized preview.
+
 ## Current Status
 
 - Project name: `TeleSift`.

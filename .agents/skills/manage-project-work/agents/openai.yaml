@@ -1,0 +1,6 @@
+interface:
+  display_name: "Manage Project Work"
+  short_description: "Capture, prioritize, and pull TeleSift work"
+  default_prompt: "Use $manage-project-work to save this idea to discovery."
+policy:
+  allow_implicit_invocation: true
