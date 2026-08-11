@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { randomUUID } from "node:crypto";
-import { closeSync, openSync, readFileSync, unlinkSync } from "node:fs";
+import { closeSync, openSync, readFileSync, realpathSync, unlinkSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -341,26 +341,28 @@ function createOrFindIssue(context, { title, body, operationId }) {
   return { issue: issueView(context, number), created: true };
 }
 
-function blockedCount(context, number) {
-  const issue = ghJson(["api", `repos/${context.repo.nameWithOwner}/issues/${number}`]);
-  return Number(issue.issue_dependencies_summary?.blocked_by ?? 0);
+function issueDetails(context, number) {
+  return ghJson(["api", `repos/${context.repo.nameWithOwner}/issues/${number}`]);
 }
 
 function normalizedItems(context) {
   return projectItems(context)
     .filter((item) => item.content?.type === "Issue")
     .filter((item) => item.content?.repository === context.repo.nameWithOwner)
-    .map((item) => ({
-      itemId: item.id,
-      number: item.content.number,
-      title: item.content.title,
-      url: item.content.url,
-      state: item.content.state,
-      status: item.status,
-      priority: item.priority,
-      assignees: item.assignees ?? [],
-      blockedBy: blockedCount(context, item.content.number),
-    }));
+    .map((item) => {
+      const details = issueDetails(context, item.content.number);
+      return {
+        itemId: item.id,
+        number: item.content.number,
+        title: item.content.title,
+        url: item.content.url,
+        state: details.state.toUpperCase(),
+        status: item.status,
+        priority: item.priority,
+        assignees: item.assignees ?? [],
+        blockedBy: Number(details.issue_dependencies_summary?.blocked_by ?? 0),
+      };
+    });
 }
 
 function nextIssue(context) {
@@ -503,7 +505,7 @@ async function main() {
   fail(`Unknown command: ${command}`);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(path.resolve(process.argv[1])) === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;
