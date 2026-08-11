@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev:telegram-service": "tsx watch src/processes/telegram-service/main.ts",
+    "generate-telegram-session": "node scripts/generate-telegram-session.mjs",
     "start:telegram-service": "node dist/processes/telegram-service/main.js",
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
