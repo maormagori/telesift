@@ -25,6 +25,12 @@ export interface MediaStream {
 export interface TelegramAccessPort {
   getStatus(): Promise<ConnectionStatus>;
   listChats(): Promise<ChatSummary[]>;
+  /**
+   * Always returns messages ordered oldest-to-newest by messageId, capped at
+   * `options.limit`. Callers can therefore page forward with no gap by setting
+   * `minId` to the last messageId they saw, regardless of how many messages
+   * exist above the previous cursor.
+   */
   getMessages(chatId: string, options: GetMessagesOptions): Promise<MessageSummary[]>;
   getMessage(chatId: string, messageId: number): Promise<MessageSummary | null>;
   getMediaStream(chatId: string, messageId: number): Promise<MediaStream | null>;
