@@ -75,10 +75,15 @@ export function createTeleprotoTelegramAccessAdapter(credentials: TelegramCreden
     async getMessages(chatId, options: GetMessagesOptions) {
       await ensureConnected();
       try {
+        // reverse: true makes teleproto return ascending (oldest-first) order starting
+        // just after minId, instead of its default newest-first order capped at limit.
+        // Without it, a minId cursor that advances to "highest ID seen" silently skips
+        // older messages whenever a chat has more than `limit` new messages between polls.
         const messages = await client.getMessages(chatId, {
           limit: options.limit,
           minId: options.minId,
           maxId: options.maxId,
+          reverse: true,
         });
         return messages.map((message) => mapMessageToSummary(chatId, message));
       } catch (error) {
