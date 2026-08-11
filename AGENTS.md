@@ -123,7 +123,7 @@ Run five long-running process roles from one TypeScript codebase and container i
   - Exposes Torznab and the qBittorrent-compatible API.
   - Handles interactive requests and enqueues durable work; it does not perform backfills, extraction, or media downloads inline.
 - `telegram-service`
-  - Is the singleton owner of the GramJS `TelegramClient`, reusable MTProto session, and all Telegram connections.
+  - Is the singleton owner of the teleproto `TelegramClient`, reusable MTProto session, and all Telegram connections.
   - Exposes a typed internal-only contract for connection/account status, chat and message retrieval, grab-time refetch, and media transfer.
   - Contains Telegram transport behavior only; it does not own ingestion, extraction, catalog, download-state, or Sonarr business rules.
   - Has no public host port and must refuse to connect when another live instance already owns the same session.
@@ -200,7 +200,7 @@ src/
 
   adapters/
     sqlite/
-    telegram-gramjs/
+    telegram-teleproto/
     telegram-rpc-client/
     llm-openai-compatible/
     local-filesystem/
@@ -227,10 +227,10 @@ domain    -> no framework-specific code
 
 Architecture rules:
 
-- Domain code must not import SQLite, GramJS, HTTP, filesystem, or LLM SDK code.
+- Domain code must not import SQLite, teleproto, HTTP, filesystem, or LLM SDK code.
 - Application use cases own workflows and transaction boundaries.
 - Ports are defined by the module that needs the capability; adapters implement them.
-- Only `telegram-service` may compose the `telegram-gramjs` adapter or read Telegram credential environment variables. Other processes use `telegram-rpc-client` through module-owned ports.
+- Only `telegram-service` may compose the `telegram-teleproto` adapter or read Telegram credential environment variables. Other processes use `telegram-rpc-client` through module-owned ports.
 - The `telegram-internal` protocol is private to the deployment and must expose bounded Telegram operations rather than domain workflows.
 - Protocol handlers translate external requests and responses only. Torznab and qBittorrent handlers must not contain search, release, or download business rules.
 - Worker entrypoints own claim loops, not the work itself. A claimed job calls an application use case that can be tested without starting a process loop.
