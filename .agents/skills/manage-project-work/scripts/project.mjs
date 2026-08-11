@@ -284,6 +284,12 @@ function findItem(context, number) {
   return projectItems(context).find((item) => item.content?.number === number && item.content?.repository === context.repo.nameWithOwner) ?? null;
 }
 
+function sleepMs(ms) {
+  spawnSync("sleep", [(ms / 1000).toString()]);
+}
+
+const ITEM_ADD_PROPAGATION_RETRIES = 5;
+
 function ensureItem(context, issue) {
   const existing = findItem(context, issue.number);
   if (existing) return existing;
@@ -291,9 +297,14 @@ function ensureItem(context, issue) {
     "project", "item-add", String(context.project.number), "--owner", context.repo.ownerLogin,
     "--url", issue.url, "--format", "json",
   ]);
-  const created = findItem(context, issue.number);
-  if (!created) fail(`Issue #${issue.number} was added but its project item could not be found`);
-  return created;
+  // `item-add` and the `item-list` read below hit different GitHub endpoints, and the
+  // new item isn't always visible to item-list immediately after item-add returns.
+  for (let attempt = 1; attempt <= ITEM_ADD_PROPAGATION_RETRIES; attempt++) {
+    const created = findItem(context, issue.number);
+    if (created) return created;
+    if (attempt < ITEM_ADD_PROPAGATION_RETRIES) sleepMs(attempt * 500);
+  }
+  fail(`Issue #${issue.number} was added but its project item could not be found`);
 }
 
 function setSelectValue(context, item, field, optionName) {
