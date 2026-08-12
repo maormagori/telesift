@@ -589,6 +589,10 @@ These remain unresolved and should be handled in future discovery/specification:
 ## Working Rules for Future Sessions
 
 - Continue from this document; do not restart discovery from zero.
+- Perform all agent implementation work in a dedicated Git worktree, not in the primary checkout.
+- When the work is integrated or abandoned, remove its dedicated worktree so completed agent worktrees do not accumulate.
+- Before planning or implementing non-trivial or complex work, research similar problems and established solutions online.
+- Identify relevant maintained libraries and recommended approaches, assess whether they fit this project, and prefer suitable existing solutions over writing equivalent custom code.
 - Ask targeted questions only when the answer changes architecture or product behavior.
 - Validate theories against MuLarr, Telegram's official API documentation, and Sonarr's official source when relevant.
 - For GitHub URLs, use `gh` rather than scraping.
