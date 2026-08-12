@@ -37,4 +37,12 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Kysely's documented migration convention types `up`/`down` params as `Kysely<any>`
+    // so old migration files stay compilable regardless of later schema changes.
+    files: ["src/adapters/sqlite/migrations/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 );

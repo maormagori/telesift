@@ -1,36 +1,56 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { DatabaseSync } from "node:sqlite";
+import type BetterSqlite3 from "better-sqlite3";
+import type { Kysely } from "kysely";
+import { sql } from "kysely";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { openDatabase } from "./connection.js";
+import { createKyselyDb, openDatabase } from "./connection.js";
 import { applyMigrations } from "./migrate.js";
+import type { DB } from "./schema.js";
 
 describe("migrate", () => {
   let dir: string;
   let dbPath: string;
   let migrationsDir: string;
-  let db: DatabaseSync;
+  let db: BetterSqlite3.Database;
+  let kysely: Kysely<DB>;
 
   beforeEach(async () => {
     dir = await mkdtemp(path.join(tmpdir(), "telesift-migrate-"));
     dbPath = path.join(dir, "telesift.sqlite3");
     migrationsDir = path.join(dir, "migrations");
     await mkdir(migrationsDir);
+    // No `import ... from "kysely"` here: these files are dynamically imported from a
+    // tmpdir with no `node_modules` in its ancestry, so bare-specifier resolution would fail.
+    // Real migrations under src/adapters/sqlite/migrations don't have this problem.
     await writeFile(
-      path.join(migrationsDir, "0001_create_widgets.sql"),
-      "CREATE TABLE widgets (id INTEGER PRIMARY KEY);",
+      path.join(migrationsDir, "0001_create_widgets.ts"),
+      `export async function up(db) {
+  await db.schema.createTable("widgets").addColumn("id", "integer", (col) => col.primaryKey()).execute();
+}
+export async function down(db) {
+  await db.schema.dropTable("widgets").execute();
+}
+`,
     );
     await writeFile(
-      path.join(migrationsDir, "0002_add_widget_name.sql"),
-      "ALTER TABLE widgets ADD COLUMN name TEXT;",
+      path.join(migrationsDir, "0002_add_widget_name.ts"),
+      `export async function up(db) {
+  await db.schema.alterTable("widgets").addColumn("name", "text").execute();
+}
+export async function down(db) {
+  await db.schema.alterTable("widgets").dropColumn("name").execute();
+}
+`,
     );
 
     db = openDatabase(dbPath);
+    kysely = createKyselyDb(db);
   });
 
   afterEach(async () => {
-    db.close();
+    await kysely.destroy();
     await rm(dir, { recursive: true, force: true });
   });
 
@@ -39,23 +59,18 @@ describe("migrate", () => {
     expect(db.prepare("PRAGMA foreign_keys").get()).toMatchObject({ foreign_keys: 1 });
   });
 
-  it("applies pending migrations in filename order", () => {
-    const applied = applyMigrations(db, migrationsDir);
+  it("applies pending migrations in filename order", async () => {
+    const applied = await applyMigrations(kysely, migrationsDir);
 
-    expect(applied).toEqual(["0001_create_widgets.sql", "0002_add_widget_name.sql"]);
-    expect(db.prepare("SELECT filename FROM schema_migrations ORDER BY filename").all()).toEqual([
-      { filename: "0001_create_widgets.sql" },
-      { filename: "0002_add_widget_name.sql" },
-    ]);
-    db.exec("INSERT INTO widgets (name) VALUES ('gizmo')");
+    expect(applied).toEqual(["0001_create_widgets", "0002_add_widget_name"]);
+    await sql`INSERT INTO widgets (name) VALUES ('gizmo')`.execute(kysely);
     expect(db.prepare("SELECT name FROM widgets").get()).toEqual({ name: "gizmo" });
   });
 
-  it("is idempotent: re-running applies nothing new", () => {
-    applyMigrations(db, migrationsDir);
-    const secondRun = applyMigrations(db, migrationsDir);
+  it("is idempotent: re-running applies nothing new", async () => {
+    await applyMigrations(kysely, migrationsDir);
+    const secondRun = await applyMigrations(kysely, migrationsDir);
 
     expect(secondRun).toEqual([]);
-    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toEqual({ count: 2 });
   });
 });

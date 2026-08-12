@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { z } from "zod";
-import { openDatabase } from "../../adapters/sqlite/connection.js";
+import { createKyselyDb, openDatabase } from "../../adapters/sqlite/connection.js";
 import { createSqliteChannelRepository } from "../../adapters/sqlite/channel-repository.js";
 import { parseChannelIdentifier } from "../../modules/ingestion/domain/channel-identifier.js";
 import { createIngestionUseCases } from "../../modules/ingestion/application/use-cases.js";
@@ -32,9 +32,9 @@ async function main(): Promise<void> {
   }
 
   const config = rawSchema.parse(process.env);
-  const db = openDatabase(config.DATABASE_PATH);
+  const kysely = createKyselyDb(openDatabase(config.DATABASE_PATH));
   try {
-    const useCases = createIngestionUseCases(createSqliteChannelRepository(db));
+    const useCases = createIngestionUseCases(createSqliteChannelRepository(kysely));
 
     if (command === "list") {
       console.log(JSON.stringify(await useCases.listChannels(), null, 2));
@@ -50,7 +50,7 @@ async function main(): Promise<void> {
           : await useCases.disableChannel(identifier);
     console.log(JSON.stringify(result, null, 2));
   } finally {
-    db.close();
+    await kysely.destroy();
   }
 }
 

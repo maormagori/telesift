@@ -1,17 +1,16 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
-import type { DatabaseSync } from "node:sqlite";
+import type BetterSqlite3 from "better-sqlite3";
+import type { Kysely } from "kysely";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { MediaProcessingJobRepository } from "../../modules/extraction/ports/media-processing-job-repository.js";
-import { openDatabase } from "./connection.js";
-import { applyMigrations } from "./migrate.js";
+import { createKyselyDb, openDatabase } from "./connection.js";
+import { applyMigrations, MIGRATIONS_DIR } from "./migrate.js";
 import { createSqliteMediaProcessingJobRepository } from "./media-processing-job-repository.js";
+import type { DB } from "./schema.js";
 
-const REPO_MIGRATIONS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../migrations");
-
-function seedMediaAsset(db: DatabaseSync, telegramMessageId: number): number {
+function seedMediaAsset(db: BetterSqlite3.Database, telegramMessageId: number): number {
   db.prepare(
     "INSERT INTO telegram_chats (telegram_id, title, type, created_at, updated_at) VALUES ('-100123', 'Chat', 'channel', 1, 1) ON CONFLICT DO NOTHING",
   ).run();
@@ -28,18 +27,20 @@ function seedMediaAsset(db: DatabaseSync, telegramMessageId: number): number {
 
 describe("sqlite media processing job repository", () => {
   let dir: string;
-  let db: DatabaseSync;
+  let db: BetterSqlite3.Database;
+  let kysely: Kysely<DB>;
   let repo: MediaProcessingJobRepository;
 
   beforeEach(async () => {
     dir = await mkdtemp(path.join(tmpdir(), "telesift-media-jobs-"));
     db = openDatabase(path.join(dir, "telesift.sqlite3"));
-    applyMigrations(db, REPO_MIGRATIONS_DIR);
-    repo = createSqliteMediaProcessingJobRepository(db);
+    kysely = createKyselyDb(db);
+    await applyMigrations(kysely, MIGRATIONS_DIR);
+    repo = createSqliteMediaProcessingJobRepository(kysely);
   });
 
   afterEach(async () => {
-    db.close();
+    await kysely.destroy();
     await rm(dir, { recursive: true, force: true });
   });
 

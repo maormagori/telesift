@@ -1,38 +1,22 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { DatabaseSync } from "node:sqlite";
+import { fileURLToPath } from "node:url";
+import type { Kysely } from "kysely";
+import { FileMigrationProvider, Migrator, type MigrationResult } from "kysely/migration";
+import type { DB } from "./schema.js";
 
-export function applyMigrations(db: DatabaseSync, migrationsDir: string): string[] {
-  db.exec(
-    "CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)",
-  );
+export const MIGRATIONS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "migrations");
 
-  const applied = new Set(
-    (db.prepare("SELECT filename FROM schema_migrations").all() as { filename: string }[]).map(
-      (row) => row.filename,
-    ),
-  );
+export async function applyMigrations(db: Kysely<DB>, migrationsDir: string): Promise<string[]> {
+  const migrator = new Migrator({
+    db,
+    provider: new FileMigrationProvider({ fs, path, migrationFolder: migrationsDir }),
+  });
 
-  const pending = readdirSync(migrationsDir)
-    .filter((filename) => filename.endsWith(".sql"))
-    .sort()
-    .filter((filename) => !applied.has(filename));
+  const { error, results } = await migrator.migrateToLatest();
+  if (error) throw error;
 
-  for (const filename of pending) {
-    const sql = readFileSync(path.join(migrationsDir, filename), "utf8");
-    db.exec("BEGIN");
-    try {
-      db.exec(sql);
-      db.prepare("INSERT INTO schema_migrations (filename, applied_at) VALUES (?, ?)").run(
-        filename,
-        Date.now(),
-      );
-      db.exec("COMMIT");
-    } catch (error) {
-      db.exec("ROLLBACK");
-      throw error;
-    }
-  }
-
-  return pending;
+  return (results ?? [])
+    .filter((result: MigrationResult) => result.status === "Success")
+    .map((result: MigrationResult) => result.migrationName);
 }
