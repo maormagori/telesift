@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.5.0"
   },
   "scripts": {
     "dev:telegram-service": "tsx watch src/processes/telegram-service/main.ts",
+    "dev:migrate": "tsx src/processes/migrate/main.ts",
     "generate-telegram-session": "node scripts/generate-telegram-session.mjs",
     "start:telegram-service": "node dist/processes/telegram-service/main.js",
+    "migrate": "node dist/processes/migrate/main.js",
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
