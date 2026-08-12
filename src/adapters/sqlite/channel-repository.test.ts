@@ -1,31 +1,29 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
-import type { DatabaseSync } from "node:sqlite";
+import type { Kysely } from "kysely";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ChannelNotFoundError } from "../../modules/ingestion/domain/channel.js";
 import type { ChannelRepository } from "../../modules/ingestion/ports/channel-repository.js";
-import { openDatabase } from "./connection.js";
-import { applyMigrations } from "./migrate.js";
+import { createKyselyDb, openDatabase } from "./connection.js";
+import { applyMigrations, MIGRATIONS_DIR } from "./migrate.js";
 import { createSqliteChannelRepository } from "./channel-repository.js";
-
-const REPO_MIGRATIONS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../migrations");
+import type { DB } from "./schema.js";
 
 describe("sqlite channel repository", () => {
   let dir: string;
-  let db: DatabaseSync;
+  let kysely: Kysely<DB>;
   let repo: ChannelRepository;
 
   beforeEach(async () => {
     dir = await mkdtemp(path.join(tmpdir(), "telesift-channels-"));
-    db = openDatabase(path.join(dir, "telesift.sqlite3"));
-    applyMigrations(db, REPO_MIGRATIONS_DIR);
-    repo = createSqliteChannelRepository(db);
+    kysely = createKyselyDb(openDatabase(path.join(dir, "telesift.sqlite3")));
+    await applyMigrations(kysely, MIGRATIONS_DIR);
+    repo = createSqliteChannelRepository(kysely);
   });
 
   afterEach(async () => {
-    db.close();
+    await kysely.destroy();
     await rm(dir, { recursive: true, force: true });
   });
 

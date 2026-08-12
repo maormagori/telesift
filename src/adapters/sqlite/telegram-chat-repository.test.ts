@@ -1,30 +1,28 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
-import type { DatabaseSync } from "node:sqlite";
+import type { Kysely } from "kysely";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { TelegramChatRepository } from "../../modules/ingestion/ports/telegram-chat-repository.js";
-import { openDatabase } from "./connection.js";
-import { applyMigrations } from "./migrate.js";
+import { createKyselyDb, openDatabase } from "./connection.js";
+import { applyMigrations, MIGRATIONS_DIR } from "./migrate.js";
 import { createSqliteTelegramChatRepository } from "./telegram-chat-repository.js";
-
-const REPO_MIGRATIONS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../migrations");
+import type { DB } from "./schema.js";
 
 describe("sqlite telegram chat repository", () => {
   let dir: string;
-  let db: DatabaseSync;
+  let kysely: Kysely<DB>;
   let repo: TelegramChatRepository;
 
   beforeEach(async () => {
     dir = await mkdtemp(path.join(tmpdir(), "telesift-telegram-chats-"));
-    db = openDatabase(path.join(dir, "telesift.sqlite3"));
-    applyMigrations(db, REPO_MIGRATIONS_DIR);
-    repo = createSqliteTelegramChatRepository(db);
+    kysely = createKyselyDb(openDatabase(path.join(dir, "telesift.sqlite3")));
+    await applyMigrations(kysely, MIGRATIONS_DIR);
+    repo = createSqliteTelegramChatRepository(kysely);
   });
 
   afterEach(async () => {
-    db.close();
+    await kysely.destroy();
     await rm(dir, { recursive: true, force: true });
   });
 

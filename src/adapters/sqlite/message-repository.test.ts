@@ -1,18 +1,17 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
-import type { DatabaseSync } from "node:sqlite";
+import type BetterSqlite3 from "better-sqlite3";
+import type { Kysely } from "kysely";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TelegramMessageNotFoundError } from "../../modules/ingestion/domain/telegram-message.js";
 import type { UpsertMessageInput } from "../../modules/ingestion/domain/telegram-message.js";
 import type { MessageRepository } from "../../modules/ingestion/ports/message-repository.js";
-import { openDatabase } from "./connection.js";
-import { applyMigrations } from "./migrate.js";
+import { createKyselyDb, openDatabase } from "./connection.js";
+import { applyMigrations, MIGRATIONS_DIR } from "./migrate.js";
 import { createSqliteMessageRepository } from "./message-repository.js";
 import { createSqliteTelegramChatRepository } from "./telegram-chat-repository.js";
-
-const REPO_MIGRATIONS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../migrations");
+import type { DB } from "./schema.js";
 
 function baseInput(overrides: Partial<UpsertMessageInput> = {}): UpsertMessageInput {
   return {
@@ -40,15 +39,17 @@ const mediaInput = {
 
 describe("sqlite message repository", () => {
   let dir: string;
-  let db: DatabaseSync;
+  let db: BetterSqlite3.Database;
+  let kysely: Kysely<DB>;
   let repo: MessageRepository;
 
   beforeEach(async () => {
     dir = await mkdtemp(path.join(tmpdir(), "telesift-messages-"));
     db = openDatabase(path.join(dir, "telesift.sqlite3"));
-    applyMigrations(db, REPO_MIGRATIONS_DIR);
-    repo = createSqliteMessageRepository(db);
-    await createSqliteTelegramChatRepository(db).upsert({
+    kysely = createKyselyDb(db);
+    await applyMigrations(kysely, MIGRATIONS_DIR);
+    repo = createSqliteMessageRepository(kysely);
+    await createSqliteTelegramChatRepository(kysely).upsert({
       telegramId: "-100123",
       title: "Some Channel",
       type: "channel",
@@ -58,7 +59,7 @@ describe("sqlite message repository", () => {
   });
 
   afterEach(async () => {
-    db.close();
+    await kysely.destroy();
     await rm(dir, { recursive: true, force: true });
   });
 

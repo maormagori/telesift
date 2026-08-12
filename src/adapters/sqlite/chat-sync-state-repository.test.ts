@@ -1,29 +1,27 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
-import type { DatabaseSync } from "node:sqlite";
+import type { Kysely } from "kysely";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ChatSyncStateRepository } from "../../modules/ingestion/ports/chat-sync-state-repository.js";
-import { openDatabase } from "./connection.js";
-import { applyMigrations } from "./migrate.js";
+import { createKyselyDb, openDatabase } from "./connection.js";
+import { applyMigrations, MIGRATIONS_DIR } from "./migrate.js";
 import { createSqliteChatSyncStateRepository } from "./chat-sync-state-repository.js";
 import { createSqliteTelegramChatRepository } from "./telegram-chat-repository.js";
-
-const REPO_MIGRATIONS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../migrations");
+import type { DB } from "./schema.js";
 
 describe("sqlite chat sync state repository", () => {
   let dir: string;
-  let db: DatabaseSync;
+  let kysely: Kysely<DB>;
   let repo: ChatSyncStateRepository;
   const chatId = "-100123";
 
   beforeEach(async () => {
     dir = await mkdtemp(path.join(tmpdir(), "telesift-chat-sync-state-"));
-    db = openDatabase(path.join(dir, "telesift.sqlite3"));
-    applyMigrations(db, REPO_MIGRATIONS_DIR);
-    repo = createSqliteChatSyncStateRepository(db);
-    await createSqliteTelegramChatRepository(db).upsert({
+    kysely = createKyselyDb(openDatabase(path.join(dir, "telesift.sqlite3")));
+    await applyMigrations(kysely, MIGRATIONS_DIR);
+    repo = createSqliteChatSyncStateRepository(kysely);
+    await createSqliteTelegramChatRepository(kysely).upsert({
       telegramId: chatId,
       title: "Some Channel",
       type: "channel",
@@ -33,7 +31,7 @@ describe("sqlite chat sync state repository", () => {
   });
 
   afterEach(async () => {
-    db.close();
+    await kysely.destroy();
     await rm(dir, { recursive: true, force: true });
   });
 
