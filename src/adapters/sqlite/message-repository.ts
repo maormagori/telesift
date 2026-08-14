@@ -163,5 +163,17 @@ export function createSqliteMessageRepository(db: Kysely<DB>): MessageRepository
       if (!row) throw new TelegramMessageNotFoundError(chatId, telegramMessageId);
       return toTelegramMessage(row);
     },
+
+    async listRecentMessageIds(chatId, limit) {
+      const rows = await db
+        .selectFrom("telegram_messages")
+        .select("telegram_message_id")
+        .where("chat_id", "=", chatId)
+        .where("deleted_at", "is", null)
+        .orderBy("telegram_message_id", "desc")
+        .limit(limit)
+        .execute();
+      return rows.map((row) => row.telegram_message_id);
+    },
   };
 }

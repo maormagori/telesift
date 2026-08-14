@@ -47,7 +47,7 @@ export function createSqliteChatSyncStateRepository(db: Kysely<DB>): ChatSyncSta
         INSERT INTO chat_sync_state (chat_id, oldest_backfilled_message_id, created_at, updated_at)
         VALUES (${chatId}, ${oldestBackfilledMessageId}, ${now}, ${now})
         ON CONFLICT (chat_id) DO UPDATE SET
-          oldest_backfilled_message_id = COALESCE(MIN(oldest_backfilled_message_id, excluded.oldest_backfilled_message_id), excluded.oldest_backfilled_message_id),
+          oldest_backfilled_message_id = COALESCE(MAX(oldest_backfilled_message_id, excluded.oldest_backfilled_message_id), excluded.oldest_backfilled_message_id),
           updated_at = excluded.updated_at
         RETURNING *
       `.execute(db);

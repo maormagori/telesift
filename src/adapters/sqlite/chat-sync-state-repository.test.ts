@@ -54,19 +54,19 @@ describe("sqlite chat sync state repository", () => {
     expect(unchanged.newestSeenMessageId).toBe(20);
   });
 
-  it("advanceBackfillCursor creates the row and moves backward", async () => {
-    const first = await repo.advanceBackfillCursor(chatId, 100, 1000);
-    expect(first.oldestBackfilledMessageId).toBe(100);
+  it("advanceBackfillCursor creates the row and moves forward", async () => {
+    const first = await repo.advanceBackfillCursor(chatId, 50, 1000);
+    expect(first.oldestBackfilledMessageId).toBe(50);
 
-    const second = await repo.advanceBackfillCursor(chatId, 50, 2000);
-    expect(second.oldestBackfilledMessageId).toBe(50);
+    const second = await repo.advanceBackfillCursor(chatId, 100, 2000);
+    expect(second.oldestBackfilledMessageId).toBe(100);
   });
 
-  it("advanceBackfillCursor is a no-op on the cursor value when the new id is not smaller", async () => {
-    await repo.advanceBackfillCursor(chatId, 50, 1000);
-    const unchanged = await repo.advanceBackfillCursor(chatId, 90, 2000);
+  it("advanceBackfillCursor is a no-op on the cursor value when the new id is not greater", async () => {
+    await repo.advanceBackfillCursor(chatId, 90, 1000);
+    const unchanged = await repo.advanceBackfillCursor(chatId, 50, 2000);
 
-    expect(unchanged.oldestBackfilledMessageId).toBe(50);
+    expect(unchanged.oldestBackfilledMessageId).toBe(90);
   });
 
   it("markBackfillCompleted sets backfillCompletedAt", async () => {
