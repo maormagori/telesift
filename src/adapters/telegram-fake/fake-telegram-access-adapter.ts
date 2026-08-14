@@ -7,9 +7,9 @@ import {
 } from "../../modules/telegram-access/ports/telegram-access-port.js";
 import { FAKE_ACCOUNT, FAKE_CHATS, type FakeChatFixture } from "./fixtures.js";
 
-export function createFakeTelegramAccessAdapter(): TelegramAccessPort {
+export function createFakeTelegramAccessAdapter(chats: FakeChatFixture[] = FAKE_CHATS): TelegramAccessPort {
   function findChat(chatId: string): FakeChatFixture {
-    const fixture = FAKE_CHATS.find((entry) => entry.chat.id === chatId);
+    const fixture = chats.find((entry) => entry.chat.id === chatId);
     if (!fixture) throw new ChatNotAccessibleError(chatId);
     return fixture;
   }
@@ -20,7 +20,7 @@ export function createFakeTelegramAccessAdapter(): TelegramAccessPort {
     },
 
     async listChats() {
-      return FAKE_CHATS.map((entry) => entry.chat);
+      return chats.map((entry) => entry.chat);
     },
 
     async getMessages(chatId, options: GetMessagesOptions) {

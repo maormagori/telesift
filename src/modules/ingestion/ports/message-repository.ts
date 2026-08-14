@@ -8,4 +8,6 @@ export interface MessageRepository {
   upsertMessage(input: UpsertMessageInput): Promise<UpsertMessageResult>;
   findByChatAndTelegramId(chatId: string, telegramMessageId: number): Promise<TelegramMessage | null>;
   markDeleted(chatId: string, telegramMessageId: number, deletedAt: number): Promise<TelegramMessage>;
+  /** Non-deleted message ids for the chat, newest first, capped at `limit`. */
+  listRecentMessageIds(chatId: string, limit: number): Promise<number[]>;
 }

@@ -152,4 +152,18 @@ describe("sqlite message repository", () => {
   it("inserting a message for a chat_id with no telegram_chats row throws", async () => {
     await expect(repo.upsertMessage(baseInput({ chatId: "unknown-chat" }))).rejects.toThrow();
   });
+
+  it("listRecentMessageIds returns non-deleted ids, newest first, capped at limit", async () => {
+    await repo.upsertMessage(baseInput({ telegramMessageId: 1 }));
+    await repo.upsertMessage(baseInput({ telegramMessageId: 2 }));
+    await repo.upsertMessage(baseInput({ telegramMessageId: 3 }));
+    await repo.markDeleted("-100123", 2, 5000);
+
+    expect(await repo.listRecentMessageIds("-100123", 10)).toEqual([3, 1]);
+    expect(await repo.listRecentMessageIds("-100123", 1)).toEqual([3]);
+  });
+
+  it("listRecentMessageIds returns an empty array for a chat with no messages", async () => {
+    expect(await repo.listRecentMessageIds("-100123", 10)).toEqual([]);
+  });
 });
