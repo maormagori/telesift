@@ -166,4 +166,44 @@ describe("sqlite message repository", () => {
   it("listRecentMessageIds returns an empty array for a chat with no messages", async () => {
     expect(await repo.listRecentMessageIds("-100123", 10)).toEqual([]);
   });
+
+  it("findById looks up a message by its internal id", async () => {
+    const inserted = await repo.upsertMessage(baseInput());
+    const found = await repo.findById(inserted.message.id);
+    expect(found?.telegramMessageId).toBe(1);
+    expect(await repo.findById(999999)).toBeNull();
+  });
+
+  it("listPrecedingMessages returns non-deleted messages before the target, oldest-of-the-window first", async () => {
+    await repo.upsertMessage(baseInput({ telegramMessageId: 1, text: "one" }));
+    await repo.upsertMessage(baseInput({ telegramMessageId: 2, text: "two" }));
+    await repo.upsertMessage(baseInput({ telegramMessageId: 3, text: "three" }));
+    await repo.markDeleted("-100123", 2, 5000);
+    await repo.upsertMessage(baseInput({ telegramMessageId: 4, text: "four" }));
+
+    const preceding = await repo.listPrecedingMessages("-100123", 4, 10);
+    expect(preceding.map((m) => m.telegramMessageId)).toEqual([1, 3]);
+  });
+
+  it("listPrecedingMessages caps at limit, keeping the messages closest to the target", async () => {
+    await repo.upsertMessage(baseInput({ telegramMessageId: 1, text: "one" }));
+    await repo.upsertMessage(baseInput({ telegramMessageId: 2, text: "two" }));
+    await repo.upsertMessage(baseInput({ telegramMessageId: 3, text: "three" }));
+
+    const preceding = await repo.listPrecedingMessages("-100123", 3, 1);
+    expect(preceding.map((m) => m.telegramMessageId)).toEqual([2]);
+  });
+
+  it("listByMediaGroup returns siblings sharing the media group id in telegram_message_id order", async () => {
+    await repo.upsertMessage(baseInput({ telegramMessageId: 1, mediaGroupId: "album-1" }));
+    await repo.upsertMessage(baseInput({ telegramMessageId: 2, mediaGroupId: "album-2" }));
+    await repo.upsertMessage(baseInput({ telegramMessageId: 3, mediaGroupId: "album-1" }));
+
+    const siblings = await repo.listByMediaGroup("-100123", "album-1");
+    expect(siblings.map((m) => m.telegramMessageId)).toEqual([1, 3]);
+  });
+
+  it("listByMediaGroup returns an empty array when no message shares the media group id", async () => {
+    expect(await repo.listByMediaGroup("-100123", "nonexistent")).toEqual([]);
+  });
 });

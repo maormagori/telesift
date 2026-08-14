@@ -3,6 +3,11 @@ import type { ChannelIdentifier } from "../../modules/ingestion/domain/channel.j
 import type { TelegramChatType } from "../../modules/ingestion/domain/telegram-chat.js";
 import type { MediaAvailability } from "../../modules/ingestion/domain/media-asset.js";
 import type { MediaProcessingJobStatus } from "../../modules/extraction/domain/media-processing-job.js";
+import type { ContextGroupMessageRole, ContextGroupStatus } from "../../modules/context/domain/context-group.js";
+import type { ExtractionRunStatus } from "../../modules/extraction/domain/extraction-run.js";
+import type { SeriesAliasSource } from "../../modules/catalog/domain/series-alias.js";
+import type { ReleaseReviewState } from "../../modules/catalog/domain/release.js";
+import type { ReleaseRevisionChangeSource } from "../../modules/catalog/domain/release-revision.js";
 
 export interface ChannelsTable {
   id: Generated<number>;
@@ -80,6 +85,87 @@ export interface MediaProcessingJobsTable {
   updated_at: number;
 }
 
+export interface ContextGroupsTable {
+  id: Generated<number>;
+  media_asset_id: number;
+  status: ContextGroupStatus;
+  input_fingerprint: string;
+  quiet_period_deadline: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ContextGroupMessagesTable {
+  id: Generated<number>;
+  context_group_id: number;
+  message_id: number;
+  role: ContextGroupMessageRole;
+  relative_order: number;
+  created_at: number;
+}
+
+export interface ExtractionRunsTable {
+  id: Generated<number>;
+  context_group_id: number;
+  input_fingerprint: string;
+  pipeline_version: string;
+  prompt_version: string;
+  model_version: string;
+  status: ExtractionRunStatus;
+  is_tv_episode: number | null;
+  result_json: string | null;
+  error: string | null;
+  created_at: number;
+}
+
+export interface SeriesTable {
+  id: Generated<number>;
+  canonical_title: string;
+  original_language: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface SeriesAliasesTable {
+  id: Generated<number>;
+  series_id: number;
+  alias_normalized: string;
+  alias_original: string;
+  language: string | null;
+  source: SeriesAliasSource;
+  created_at: number;
+}
+
+export interface ReleasesTable {
+  id: Generated<number>;
+  media_asset_id: number;
+  series_id: number | null;
+  extraction_run_id: number;
+  season: number | null;
+  episode: number | null;
+  resolution: string | null;
+  source: string | null;
+  codec: string | null;
+  language: string | null;
+  display_title: string;
+  review_state: Generated<ReleaseReviewState>;
+  manually_verified: Generated<number>;
+  manually_verified_at: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ReleaseRevisionsTable {
+  id: Generated<number>;
+  release_id: number;
+  extraction_run_id: number | null;
+  change_source: ReleaseRevisionChangeSource;
+  before_json: string;
+  after_json: string;
+  actor: string;
+  created_at: number;
+}
+
 export interface DB {
   channels: ChannelsTable;
   telegram_chats: TelegramChatsTable;
@@ -87,4 +173,11 @@ export interface DB {
   telegram_messages: TelegramMessagesTable;
   media_assets: MediaAssetsTable;
   media_processing_jobs: MediaProcessingJobsTable;
+  context_groups: ContextGroupsTable;
+  context_group_messages: ContextGroupMessagesTable;
+  extraction_runs: ExtractionRunsTable;
+  series: SeriesTable;
+  series_aliases: SeriesAliasesTable;
+  releases: ReleasesTable;
+  release_revisions: ReleaseRevisionsTable;
 }
