@@ -4,6 +4,7 @@ export interface OpenAiCompatibleConfig {
   endpointUrl: string;
   model: string;
   apiKey: string | null;
+  requestTimeoutMs: number;
 }
 
 const SYSTEM_PROMPT = `You are a structured extraction function for a personal media indexer. You are given bounded, structured context about a Telegram message and its attached media, plus a small set of locally known series candidates.
@@ -35,21 +36,30 @@ export function createOpenAiCompatibleLlmExtractor(config: OpenAiCompatibleConfi
 
   return {
     async extract(input) {
-      const response = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(config.apiKey ? { authorization: `Bearer ${config.apiKey}` } : {}),
-        },
-        body: JSON.stringify({
-          model: config.model,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: JSON.stringify(input) },
-          ],
-        }),
-      });
+      let response: Response;
+      try {
+        response = await fetch(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            ...(config.apiKey ? { authorization: `Bearer ${config.apiKey}` } : {}),
+          },
+          body: JSON.stringify({
+            model: config.model,
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user", content: JSON.stringify(input) },
+            ],
+          }),
+          signal: AbortSignal.timeout(config.requestTimeoutMs),
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name === "TimeoutError") {
+          throw new Error(`LLM request timed out after ${config.requestTimeoutMs}ms`);
+        }
+        throw error;
+      }
 
       if (!response.ok) {
         throw new Error(`LLM request failed: ${response.status} ${await response.text()}`);

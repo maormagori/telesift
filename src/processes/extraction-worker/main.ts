@@ -64,7 +64,12 @@ async function main(): Promise<void> {
 
   const llmExtractor =
     config.llmAdapter === "openai-compatible"
-      ? createOpenAiCompatibleLlmExtractor({ endpointUrl: config.llmEndpointUrl!, model: config.llmModel!, apiKey: config.llmApiKey })
+      ? createOpenAiCompatibleLlmExtractor({
+          endpointUrl: config.llmEndpointUrl!,
+          model: config.llmModel!,
+          apiKey: config.llmApiKey,
+          requestTimeoutMs: config.llmRequestTimeoutMs,
+        })
       : createFakeLlmExtractor();
   const modelVersion = config.llmAdapter === "openai-compatible" ? config.llmModel! : "fake";
 

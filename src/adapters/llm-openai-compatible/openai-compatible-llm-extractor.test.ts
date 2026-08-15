@@ -31,7 +31,7 @@ describe("openai-compatible LLM extractor", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const extractor = createOpenAiCompatibleLlmExtractor({ endpointUrl: "http://localhost:11434/v1", model: "qwen3", apiKey: null });
+    const extractor = createOpenAiCompatibleLlmExtractor({ endpointUrl: "http://localhost:11434/v1", model: "qwen3", apiKey: null, requestTimeoutMs: 30_000 });
     const result = await extractor.extract(INPUT);
 
     expect(result).toEqual({ isTvEpisode: true });
@@ -54,7 +54,12 @@ describe("openai-compatible LLM extractor", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const extractor = createOpenAiCompatibleLlmExtractor({ endpointUrl: "http://localhost:11434/v1", model: "qwen3", apiKey: "secret" });
+    const extractor = createOpenAiCompatibleLlmExtractor({
+      endpointUrl: "http://localhost:11434/v1",
+      model: "qwen3",
+      apiKey: "secret",
+      requestTimeoutMs: 30_000,
+    });
     await extractor.extract(INPUT);
 
     const requestInit = fetchMock.mock.calls[0]![1] as RequestInit;
@@ -63,15 +68,50 @@ describe("openai-compatible LLM extractor", () => {
 
   it("throws when the HTTP response is not ok", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500, text: async () => "boom" }) as unknown as typeof fetch;
-    const extractor = createOpenAiCompatibleLlmExtractor({ endpointUrl: "http://localhost:11434/v1", model: "qwen3", apiKey: null });
+    const extractor = createOpenAiCompatibleLlmExtractor({ endpointUrl: "http://localhost:11434/v1", model: "qwen3", apiKey: null, requestTimeoutMs: 30_000 });
 
     await expect(extractor.extract(INPUT)).rejects.toThrow(/500/);
   });
 
   it("throws when the response has no message content", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ choices: [] }) }) as unknown as typeof fetch;
-    const extractor = createOpenAiCompatibleLlmExtractor({ endpointUrl: "http://localhost:11434/v1", model: "qwen3", apiKey: null });
+    const extractor = createOpenAiCompatibleLlmExtractor({ endpointUrl: "http://localhost:11434/v1", model: "qwen3", apiKey: null, requestTimeoutMs: 30_000 });
 
     await expect(extractor.extract(INPUT)).rejects.toThrow(/no message content/);
+  });
+
+  it("passes an AbortSignal that fires after requestTimeoutMs, and throws a clear timeout error", async () => {
+    const fetchMock = vi.fn((_url: string, init: RequestInit) => {
+      return new Promise((_resolve, reject) => {
+        const signal = init.signal!;
+        signal.addEventListener("abort", () => {
+          const error = new Error("This operation was aborted");
+          error.name = "TimeoutError";
+          reject(error);
+        });
+      });
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const extractor = createOpenAiCompatibleLlmExtractor({
+      endpointUrl: "http://localhost:11434/v1",
+      model: "qwen3",
+      apiKey: null,
+      requestTimeoutMs: 10,
+    });
+
+    await expect(extractor.extract(INPUT)).rejects.toThrow(/timed out after 10ms/);
+  });
+
+  it("propagates a non-timeout fetch failure unchanged", async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error("getaddrinfo ENOTFOUND")) as unknown as typeof fetch;
+    const extractor = createOpenAiCompatibleLlmExtractor({
+      endpointUrl: "http://localhost:11434/v1",
+      model: "qwen3",
+      apiKey: null,
+      requestTimeoutMs: 30_000,
+    });
+
+    await expect(extractor.extract(INPUT)).rejects.toThrow(/ENOTFOUND/);
   });
 });

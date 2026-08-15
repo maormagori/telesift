@@ -16,6 +16,7 @@ const rawSchema = z.object({
   LLM_ENDPOINT_URL: z.string().optional(),
   LLM_MODEL: z.string().optional(),
   LLM_API_KEY: z.string().optional(),
+  LLM_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
 
@@ -34,6 +35,7 @@ export interface ExtractionWorkerConfig {
   llmEndpointUrl: string | null;
   llmModel: string | null;
   llmApiKey: string | null;
+  llmRequestTimeoutMs: number;
   logLevel: "debug" | "info" | "warn" | "error";
 }
 
@@ -59,6 +61,7 @@ export function loadExtractionWorkerConfig(env: NodeJS.ProcessEnv = process.env)
     llmEndpointUrl: parsed.LLM_ENDPOINT_URL ?? null,
     llmModel: parsed.LLM_MODEL ?? null,
     llmApiKey: parsed.LLM_API_KEY ?? null,
+    llmRequestTimeoutMs: parsed.LLM_REQUEST_TIMEOUT_MS,
     logLevel: parsed.LOG_LEVEL,
   };
 }
