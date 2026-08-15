@@ -382,16 +382,15 @@ If later evidence justifies tool use, consider only narrow read-only operations 
 
 Precision matters more than recall. A hidden result is less harmful than importing the wrong episode.
 
-Initial calibration mode:
+The extraction pipeline itself is fully automatic end to end; a human is only in the loop for releases the pipeline flags as uncertain, or to correct a mistake after the fact. A release auto-enters `approved` (indexable) only when every independently-checkable signal agrees: `isTvEpisode: true`, the LLM's `recommendedState` is `index`, `ambiguities` is empty, the observed series matched an *existing* local series above the confidence threshold (a newly auto-created candidate series always forces review — an unverified show name shouldn't be immediately indexable), and a mechanical cross-check (deterministic pre-pass vs. LLM season/episode, resolution vs. video dimensions) finds no conflict. The LLM's `recommendedState` is an input to this decision, not the decision itself — the application computes the final review/index outcome; the LLM never marks its own result verified. Anything short of that lands in the review queue.
 
-- Send every extraction to the UI review queue.
 - Record accepted and corrected results.
-- Keep low/incomplete results stored but hidden from Sonarr.
-- Derive automatic-indexing thresholds only after measuring real labeled examples.
-- Manual edits update the canonical release and create an immutable revision/audit record.
-- Later extraction must not overwrite a manually verified record without explicit user action.
+- Keep low/incomplete results stored but hidden from Sonarr until reviewed.
+- Manual edits and approvals update the canonical release and create an immutable revision/audit record.
+- Later extraction must not overwrite a manually verified record without explicit user action; it may freely update a release the system auto-approved but no human has verified, since there is nothing manual to protect there.
+- The auto-index gate is a single `AUTO_INDEX_ENABLED` switch (default on) so it can be turned off back to review-all without a redeploy if it proves too loose in practice.
 
-No real message samples are currently available. This is the largest remaining product risk.
+This policy was calibrated against real sanitized samples from two live Telegram channels (see issue #13); it is not a hypothetical default awaiting future data.
 
 ## Series Identity and Sonarr Search
 
@@ -564,8 +563,7 @@ These remain unresolved and should be handled in future discovery/specification:
    - Cannot be validated without real samples.
 3. **Extraction JSON schema**
    - Final required fields, enums, evidence format, and bounded more-context request.
-4. **Confidence calibration**
-   - Initial review-all mode is chosen; automatic threshold waits for real labeled data.
+4. **Confidence calibration** — resolved by #13 once real sanitized samples were available; see "Review and Confidence Policy" above for the auto-index gate that replaced the earlier review-all default.
 5. **Series resolution**
    - Alias normalization for Hebrew/English.
    - Duplicate/merge behavior.

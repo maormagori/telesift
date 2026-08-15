@@ -175,5 +175,35 @@ export function createSqliteMessageRepository(db: Kysely<DB>): MessageRepository
         .execute();
       return rows.map((row) => row.telegram_message_id);
     },
+
+    async findById(messageId) {
+      const row = await db.selectFrom("telegram_messages").selectAll().where("id", "=", messageId).executeTakeFirst();
+      return row ? toTelegramMessage(row) : null;
+    },
+
+    async listPrecedingMessages(chatId, beforeTelegramMessageId, limit) {
+      const rows = await db
+        .selectFrom("telegram_messages")
+        .selectAll()
+        .where("chat_id", "=", chatId)
+        .where("telegram_message_id", "<", beforeTelegramMessageId)
+        .where("deleted_at", "is", null)
+        .orderBy("telegram_message_id", "desc")
+        .limit(limit)
+        .execute();
+      return rows.map(toTelegramMessage).reverse();
+    },
+
+    async listByMediaGroup(chatId, mediaGroupId) {
+      const rows = await db
+        .selectFrom("telegram_messages")
+        .selectAll()
+        .where("chat_id", "=", chatId)
+        .where("media_group_id", "=", mediaGroupId)
+        .where("deleted_at", "is", null)
+        .orderBy("telegram_message_id", "asc")
+        .execute();
+      return rows.map(toTelegramMessage);
+    },
   };
 }
