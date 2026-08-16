@@ -1,6 +1,7 @@
 import type { Logger } from "../../../platform/logging/logger.js";
 import type { MessageSummary } from "../../telegram-access/ports/models.js";
 import type { TelegramAccessPort } from "../../telegram-access/ports/telegram-access-port.js";
+import { createChannelResolver } from "./channel-resolution.js";
 import type { Channel } from "../domain/channel.js";
 import type { ChatSyncStateRepository } from "../ports/chat-sync-state-repository.js";
 import type { MessageRepository } from "../ports/message-repository.js";
@@ -31,37 +32,7 @@ export interface SyncChannelUseCase {
 
 export function createSyncChannelUseCase(deps: SyncChannelDeps): SyncChannelUseCase {
   const { telegramAccess, telegramChatRepo, chatSyncStateRepo, messageRepo, logger, config } = deps;
-
-  async function resolveExistingChatId(channel: Channel): Promise<string | null> {
-    if (channel.identifier.type === "telegram_id") {
-      const chat = await telegramChatRepo.findByTelegramId(channel.identifier.value);
-      return chat?.telegramId ?? null;
-    }
-    const chat = (await telegramChatRepo.list()).find((entry) => entry.username === channel.identifier.value);
-    return chat?.telegramId ?? null;
-  }
-
-  async function resolveChatId(channel: Channel, now: number): Promise<string | null> {
-    const existing = await resolveExistingChatId(channel);
-    if (existing) return existing;
-
-    const remoteChats = await telegramAccess.listChats();
-    const match = remoteChats.find((chat) =>
-      channel.identifier.type === "telegram_id"
-        ? chat.id === channel.identifier.value
-        : chat.username === channel.identifier.value,
-    );
-    if (!match) return null;
-
-    const chat = await telegramChatRepo.upsert({
-      telegramId: match.id,
-      title: match.title,
-      type: match.type,
-      username: match.username,
-      now,
-    });
-    return chat.telegramId;
-  }
+  const resolver = createChannelResolver({ telegramAccess, telegramChatRepo });
 
   async function upsertPage(chatId: string, messages: MessageSummary[], now: number): Promise<void> {
     for (const message of messages) {
@@ -126,8 +97,8 @@ export function createSyncChannelUseCase(deps: SyncChannelDeps): SyncChannelUseC
   return {
     async syncChannel(channel, now) {
       try {
-        const chatId = await resolveChatId(channel, now);
-        if (!chatId) {
+        const chat = await resolver.resolveOrDiscover(channel, now);
+        if (!chat) {
           logger.warn("ingestion: channel not yet visible to this account, skipping", {
             identifierType: channel.identifier.type,
             identifierValue: channel.identifier.value,
@@ -135,8 +106,8 @@ export function createSyncChannelUseCase(deps: SyncChannelDeps): SyncChannelUseC
           return;
         }
 
-        await advancePage(chatId, now);
-        await rescanIfDue(chatId, now);
+        await advancePage(chat.telegramId, now);
+        await rescanIfDue(chat.telegramId, now);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         logger.error("ingestion: sync failed for channel", {
@@ -144,8 +115,8 @@ export function createSyncChannelUseCase(deps: SyncChannelDeps): SyncChannelUseC
           identifierValue: channel.identifier.value,
           error: message,
         });
-        const chatId = await resolveExistingChatId(channel);
-        if (chatId) await chatSyncStateRepo.recordError(chatId, message, now);
+        const chat = await resolver.resolveExisting(channel);
+        if (chat) await chatSyncStateRepo.recordError(chat.telegramId, message, now);
       }
     },
   };

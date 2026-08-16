@@ -15,5 +15,6 @@
     "sourceMap": true,
     "resolveJsonModule": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/processes/app/web"]
 }

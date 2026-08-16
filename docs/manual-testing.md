@@ -59,3 +59,51 @@ plays/opens correctly, then delete it — it's real chat content, not a fixture.
 With step 3's process still running, run `npm run dev:telegram-service` again
 in a second terminal. It must refuse to start and exit, logging that the lock
 is already held.
+
+## app
+
+Requires `telegram-service` running from the steps above (real Telegram, so a
+channel add can actually resolve). Automated tests cover the app-api protocol
+against fake adapters (`src/protocols/app-api/server.test.ts`); this covers
+the parts that only make sense against a real account and a real browser.
+
+### 1. Provision an admin credential
+
+```
+npm run hash-admin-password
+```
+
+Prompts for a password twice and prints a `scrypt$<salt>$<hash>` string. Put
+it in `.env` as `APP_ADMIN_PASSWORD_HASH`, along with `APP_ADMIN_USERNAME` and
+a random `APP_SESSION_SECRET`. Never put a plaintext password in `.env`.
+
+### 2. Start the app
+
+```
+npm run dev:app
+npm run dev:app-web
+```
+
+`dev:app` is the Express/API process; `dev:app-web` is the Vite dev server,
+proxying `/api` to it. Open the Vite dev server's printed URL in a browser.
+
+### 3. Log in and exercise the UI
+
+- Log in with the credential from step 1. Confirm a bad password is rejected
+  and the session persists across a page reload.
+- On the Channels screen, add a real channel/group visible to the Telegram
+  account (username or numeric chat id). Confirm it resolves immediately and
+  shows its title — this is the synchronous add-time resolution, not
+  `ingestion-worker`'s poll loop.
+- Add an identifier that isn't visible to the account. Confirm the add still
+  succeeds but is reported unresolved, and doesn't block the request.
+- With `ingestion-worker` also running (`npm run dev:ingestion-worker`),
+  confirm the channel's sync progress (backfill/caught-up state, or an error)
+  updates on the Channels screen as it syncs.
+- Open a resolved channel's raw message view. Confirm messages render, media
+  metadata (filename/size/type) shows for messages with attachments, and a
+  media preview/download actually streams real bytes from Telegram.
+- Check the Telegram status screen matches `telegram-service`'s real
+  connection/account state.
+- Log out. Confirm the session cookie is cleared and protected screens bounce
+  back to the login page.

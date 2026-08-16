@@ -206,4 +206,26 @@ describe("sqlite message repository", () => {
   it("listByMediaGroup returns an empty array when no message shares the media group id", async () => {
     expect(await repo.listByMediaGroup("-100123", "nonexistent")).toEqual([]);
   });
+
+  it("listMessagesPage returns non-deleted messages newest first, capped at limit", async () => {
+    await repo.upsertMessage(baseInput({ telegramMessageId: 1 }));
+    await repo.upsertMessage(baseInput({ telegramMessageId: 2 }));
+    await repo.upsertMessage(baseInput({ telegramMessageId: 3 }));
+    await repo.markDeleted("-100123", 2, 5000);
+
+    const page = await repo.listMessagesPage("-100123", { beforeTelegramMessageId: null, limit: 10 });
+    expect(page.map((m) => m.telegramMessageId)).toEqual([3, 1]);
+
+    const capped = await repo.listMessagesPage("-100123", { beforeTelegramMessageId: null, limit: 1 });
+    expect(capped.map((m) => m.telegramMessageId)).toEqual([3]);
+  });
+
+  it("listMessagesPage pages backward using the cursor of the last returned message", async () => {
+    await repo.upsertMessage(baseInput({ telegramMessageId: 1 }));
+    await repo.upsertMessage(baseInput({ telegramMessageId: 2 }));
+    await repo.upsertMessage(baseInput({ telegramMessageId: 3 }));
+
+    const page = await repo.listMessagesPage("-100123", { beforeTelegramMessageId: 3, limit: 10 });
+    expect(page.map((m) => m.telegramMessageId)).toEqual([2, 1]);
+  });
 });
