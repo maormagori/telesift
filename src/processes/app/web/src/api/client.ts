@@ -80,6 +80,104 @@ export interface MessageWithMedia {
   media: MediaAsset | null;
 }
 
+export type ReleaseReviewState = "pending_review" | "approved" | "rejected";
+
+export interface Release {
+  id: number;
+  mediaAssetId: number;
+  seriesId: number | null;
+  extractionRunId: number;
+  season: number | null;
+  episode: number | null;
+  resolution: string | null;
+  source: string | null;
+  codec: string | null;
+  language: string | null;
+  displayTitle: string;
+  reviewState: ReleaseReviewState;
+  manuallyVerified: boolean;
+  manuallyVerifiedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ReleaseFieldsSnapshot {
+  seriesId: number | null;
+  season: number | null;
+  episode: number | null;
+  resolution: string | null;
+  source: string | null;
+  codec: string | null;
+  language: string | null;
+  displayTitle: string;
+  reviewState: ReleaseReviewState;
+  manuallyVerified: boolean;
+  manuallyVerifiedAt: number | null;
+}
+
+export interface ReleaseRevision {
+  id: number;
+  releaseId: number;
+  extractionRunId: number | null;
+  changeSource: "extraction" | "review";
+  before: ReleaseFieldsSnapshot;
+  after: ReleaseFieldsSnapshot;
+  actor: string;
+  createdAt: number;
+}
+
+export interface ReleaseDetail {
+  release: Release;
+  source: { message: TelegramMessage | null; media: MediaAsset | null };
+  revisions: ReleaseRevision[];
+}
+
+export interface EditReleaseInput {
+  seriesId?: number | null;
+  season?: number | null;
+  episode?: number | null;
+  resolution?: string | null;
+  source?: string | null;
+  codec?: string | null;
+  language?: string | null;
+}
+
+export interface Series {
+  id: number;
+  canonicalTitle: string;
+  originalLanguage: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type DownloadDesiredState = "queued" | "paused" | "canceled";
+export type DownloadObservedState = "queued" | "verifying" | "downloading" | "paused" | "completed" | "failed" | "canceled";
+
+export interface Download {
+  id: number;
+  releaseId: number;
+  clientHash: string;
+  desiredState: DownloadDesiredState;
+  observedState: DownloadObservedState;
+  progressBytes: number;
+  totalBytes: number | null;
+  stagingPath: string | null;
+  category: string | null;
+  workerId: string | null;
+  leaseExpiresAt: number | null;
+  attempts: number;
+  lastError: string | null;
+  lastErrorAt: number | null;
+  completedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface DownloadWithRelease {
+  download: Download;
+  release: Release | null;
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -142,4 +240,35 @@ export const api = {
 
   mediaUrl: (chatId: string, messageId: number) =>
     `/api/chats/${encodeURIComponent(chatId)}/messages/${messageId}/media`,
+
+  listPendingReview: (options: { afterId?: number; limit?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (options.afterId !== undefined) params.set("afterId", String(options.afterId));
+    if (options.limit !== undefined) params.set("limit", String(options.limit));
+    const query = params.toString();
+    return request<Release[]>(`/releases${query ? `?${query}` : ""}`);
+  },
+
+  getReleaseDetail: (releaseId: number) => request<ReleaseDetail>(`/releases/${releaseId}`),
+
+  approveRelease: (releaseId: number) => request<Release>(`/releases/${releaseId}/approve`, { method: "POST" }),
+
+  rejectRelease: (releaseId: number) => request<Release>(`/releases/${releaseId}/reject`, { method: "POST" }),
+
+  editRelease: (releaseId: number, input: EditReleaseInput) =>
+    request<Release>(`/releases/${releaseId}/edit`, { method: "POST", body: JSON.stringify(input) }),
+
+  searchSeries: (search: string, limit = 10) =>
+    request<Series[]>(`/series?search=${encodeURIComponent(search)}&limit=${limit}`),
+
+  listDownloads: () => request<DownloadWithRelease[]>("/downloads"),
+
+  pauseDownload: (downloadId: number) => request<Download>(`/downloads/${downloadId}/pause`, { method: "POST" }),
+
+  resumeDownload: (downloadId: number) => request<Download>(`/downloads/${downloadId}/resume`, { method: "POST" }),
+
+  cancelDownload: (downloadId: number) => request<Download>(`/downloads/${downloadId}/cancel`, { method: "POST" }),
+
+  retryDownload: (releaseId: number, category: string | null = null) =>
+    request<Download>(`/downloads/${releaseId}/retry`, { method: "POST", body: JSON.stringify({ category }) }),
 };

@@ -1,5 +1,8 @@
+import { AlertTriangle, Radio } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { api } from "../api/client";
+import { Button } from "../components/Button";
+import "./Login.css";
 
 export function Login({ onLoggedIn }: { onLoggedIn: (username: string) => void }) {
   const [username, setUsername] = useState("");
@@ -22,31 +25,38 @@ export function Login({ onLoggedIn }: { onLoggedIn: (username: string) => void }
   }
 
   return (
-    <div className="app-shell">
-      <h1>TeleSift</h1>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>
-            Username
-            <br />
-            <input value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
-          </label>
+    <div className="login-page">
+      <form className="login-card" onSubmit={handleSubmit}>
+        <div className="login-brand">
+          <Radio size={22} aria-hidden="true" />
+          <span>TeleSift</span>
         </div>
-        <div style={{ marginTop: "0.5rem" }}>
-          <label>
-            Password
-            <br />
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </label>
-        </div>
+        <p className="muted text-sm login-subtitle">Operator console</p>
+
+        <label className="login-field">
+          <span>Username</span>
+          <input value={username} onChange={(e) => setUsername(e.target.value)} autoFocus autoComplete="username" />
+        </label>
+        <label className="login-field">
+          <span>Password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+        </label>
+
         {error && (
-          <p className="error" role="alert">
+          <p className="login-error" role="alert">
+            <AlertTriangle size={14} aria-hidden="true" />
             {error}
           </p>
         )}
-        <button type="submit" disabled={submitting} style={{ marginTop: "0.75rem" }}>
-          {submitting ? "Logging in..." : "Log in"}
-        </button>
+
+        <Button type="submit" variant="primary" loading={submitting} disabled={!username || !password} className="login-submit">
+          Log in
+        </Button>
       </form>
     </div>
   );

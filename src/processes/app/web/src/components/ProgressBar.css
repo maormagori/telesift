@@ -1,0 +1,26 @@
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--color-secondary);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width var(--transition-base);
+}
+
+.progress-bar-neutral {
+  background: var(--color-muted-fg);
+}
+.progress-bar-success {
+  background: var(--color-success);
+}
+.progress-bar-warning {
+  background: var(--color-warning);
+}
+.progress-bar-destructive {
+  background: var(--color-destructive);
+}
