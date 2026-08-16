@@ -63,6 +63,7 @@ describe("message inspection use-cases", () => {
     const mediaAssetRepo: MediaAssetRepository = {
       findById: async () => null,
       findByMessageId: async (messageId) => (messageId === 1 ? media({ messageId: 1 }) : null),
+      updateAvailability: async () => {},
     };
     const useCases = createMessageInspectionUseCases({ messageRepo, mediaAssetRepo });
 

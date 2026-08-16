@@ -10,9 +10,9 @@
 *.session-journal
 
 # Local application state and downloaded media
-data/
-downloads/
-staging/
+/data/
+/downloads/
+/staging/
 *.db
 *.db-*
 *.sqlite

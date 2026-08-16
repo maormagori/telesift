@@ -8,6 +8,7 @@ import type { ExtractionRunStatus } from "../../modules/extraction/domain/extrac
 import type { SeriesAliasSource } from "../../modules/catalog/domain/series-alias.js";
 import type { ReleaseReviewState } from "../../modules/catalog/domain/release.js";
 import type { ReleaseRevisionChangeSource } from "../../modules/catalog/domain/release-revision.js";
+import type { DownloadDesiredState, DownloadObservedState } from "../../modules/downloads/domain/download.js";
 
 export interface ChannelsTable {
   id: Generated<number>;
@@ -166,6 +167,26 @@ export interface ReleaseRevisionsTable {
   created_at: number;
 }
 
+export interface DownloadsTable {
+  id: Generated<number>;
+  release_id: number;
+  client_hash: string;
+  desired_state: Generated<DownloadDesiredState>;
+  observed_state: Generated<DownloadObservedState>;
+  progress_bytes: Generated<number>;
+  total_bytes: number | null;
+  staging_path: string | null;
+  category: string | null;
+  worker_id: string | null;
+  lease_expires_at: number | null;
+  attempts: Generated<number>;
+  last_error: string | null;
+  last_error_at: number | null;
+  completed_at: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
 export interface DB {
   channels: ChannelsTable;
   telegram_chats: TelegramChatsTable;
@@ -180,4 +201,5 @@ export interface DB {
   series_aliases: SeriesAliasesTable;
   releases: ReleasesTable;
   release_revisions: ReleaseRevisionsTable;
+  downloads: DownloadsTable;
 }

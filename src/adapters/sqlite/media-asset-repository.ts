@@ -32,5 +32,18 @@ export function createSqliteMediaAssetRepository(db: Kysely<DB>): MediaAssetRepo
       const row = await db.selectFrom("media_assets").selectAll().where("message_id", "=", messageId).executeTakeFirst();
       return row ? toMediaAsset(row) : null;
     },
+
+    async updateAvailability(mediaAssetId, input) {
+      await db
+        .updateTable("media_assets")
+        .set({
+          availability: input.availability,
+          last_verified_at: input.availability === "available" ? input.now : undefined,
+          unavailable_at: input.availability === "unavailable" ? input.now : undefined,
+          updated_at: input.now,
+        })
+        .where("id", "=", mediaAssetId)
+        .execute();
+    },
   };
 }
