@@ -85,7 +85,10 @@ describe("buildOrRefreshContextGroup", () => {
       listPrecedingMessages: async () => [],
       listByMediaGroup: async () => [],
     };
-    const mediaAssetRepo: MediaAssetRepository = { findById: async () => mediaAsset({ messageId: 10 }) };
+    const mediaAssetRepo: MediaAssetRepository = {
+      findById: async () => mediaAsset({ messageId: 10 }),
+      updateAvailability: async () => {},
+    };
     const contextGroupRepo = fakeContextGroupRepo();
 
     const buildOrRefresh = createBuildOrRefreshContextGroup({
@@ -118,7 +121,10 @@ describe("buildOrRefreshContextGroup", () => {
       listPrecedingMessages: async () => [],
       listByMediaGroup: async () => [target],
     };
-    const mediaAssetRepo: MediaAssetRepository = { findById: async () => mediaAsset({ messageId: 10 }) };
+    const mediaAssetRepo: MediaAssetRepository = {
+      findById: async () => mediaAsset({ messageId: 10 }),
+      updateAvailability: async () => {},
+    };
     const contextGroupRepo = fakeContextGroupRepo();
 
     const buildOrRefresh = createBuildOrRefreshContextGroup({
@@ -151,7 +157,10 @@ describe("buildOrRefreshContextGroup", () => {
       listPrecedingMessages: async () => [],
       listByMediaGroup: async () => [target],
     };
-    const mediaAssetRepo: MediaAssetRepository = { findById: async () => mediaAsset({ messageId: 10 }) };
+    const mediaAssetRepo: MediaAssetRepository = {
+      findById: async () => mediaAsset({ messageId: 10 }),
+      updateAvailability: async () => {},
+    };
     const contextGroupRepo = fakeContextGroupRepo();
 
     const buildOrRefresh = createBuildOrRefreshContextGroup({
@@ -185,7 +194,10 @@ describe("buildOrRefreshContextGroup", () => {
       listPrecedingMessages: async () => [preceding],
       listByMediaGroup: async () => [],
     };
-    const mediaAssetRepo: MediaAssetRepository = { findById: async () => mediaAsset({ messageId: 10 }) };
+    const mediaAssetRepo: MediaAssetRepository = {
+      findById: async () => mediaAsset({ messageId: 10 }),
+      updateAvailability: async () => {},
+    };
     const contextGroupRepo = fakeContextGroupRepo();
 
     const buildOrRefresh = createBuildOrRefreshContextGroup({
@@ -209,7 +221,7 @@ describe("buildOrRefreshContextGroup", () => {
   });
 
   it("throws MediaAssetNotFoundError for an unknown media asset", async () => {
-    const mediaAssetRepo: MediaAssetRepository = { findById: async () => null };
+    const mediaAssetRepo: MediaAssetRepository = { findById: async () => null, updateAvailability: async () => {} };
     const messageRepo = {} as MessageRepository;
     const contextGroupRepo = fakeContextGroupRepo();
 

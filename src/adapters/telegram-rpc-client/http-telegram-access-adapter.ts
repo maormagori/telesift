@@ -20,11 +20,38 @@ import {
 
 const ErrorBodySchema = z.object({ error: z.string(), message: z.string().optional() });
 
-export function createHttpTelegramAccessAdapter(baseUrl: string): TelegramAccessPort {
+export interface HttpTelegramAccessAdapterOptions {
+  /**
+   * Bounds time-to-first-byte only, not a media stream's full body — a large
+   * transfer must not be cut off once headers have arrived. Undefined
+   * preserves the previous no-timeout behavior.
+   */
+  requestTimeoutMs?: number;
+}
+
+export function createHttpTelegramAccessAdapter(
+  baseUrl: string,
+  options: HttpTelegramAccessAdapterOptions = {},
+): TelegramAccessPort {
   const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
 
   async function get(pathname: string): Promise<Response> {
-    return fetch(`${normalizedBaseUrl}${pathname}`);
+    if (!options.requestTimeoutMs) return fetch(`${normalizedBaseUrl}${pathname}`);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), options.requestTimeoutMs);
+    try {
+      return await fetch(`${normalizedBaseUrl}${pathname}`, { signal: controller.signal });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error(`telegram-service request timed out after ${options.requestTimeoutMs}ms: ${pathname}`);
+      }
+      throw error;
+    } finally {
+      // Clearing here only cancels the time-to-first-byte wait; it does not
+      // affect a response body already being streamed by the caller.
+      clearTimeout(timeout);
+    }
   }
 
   async function readErrorName(res: Response): Promise<string | null> {
