@@ -6,6 +6,11 @@ import { parseChannelIdentifier } from "../../modules/ingestion/domain/channel-i
 import type { ChannelStatusUseCases } from "../../modules/ingestion/application/use-cases.js";
 import type { IngestionUseCases } from "../../modules/ingestion/application/use-cases.js";
 import type { MessageInspectionUseCases } from "../../modules/ingestion/application/message-inspection.js";
+import type { SeriesRepository } from "../../modules/catalog/ports/series-repository.js";
+import type { ReviewQueueUseCases } from "../../modules/review/application/review-queue.js";
+import type { ReviewUseCases } from "../../modules/review/application/review-use-cases.js";
+import type { DownloadQueueUseCases } from "../../modules/downloads/application/download-queue.js";
+import type { DownloadControls } from "../../modules/downloads/application/download-controls.js";
 import type { TelegramAccessUseCases } from "../../modules/telegram-access/application/use-cases.js";
 import { ChatNotFoundError, MessageUnavailableError } from "../../modules/telegram-access/application/use-cases.js";
 import { requireAuth } from "./session.js";
@@ -27,6 +32,27 @@ const MessagesPageQuerySchema = z.object({
   before: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().max(200).default(50),
 });
+const ListReleasesQuerySchema = z.object({
+  afterId: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().positive().max(200).default(50),
+});
+const ReleaseIdParamSchema = z.object({ id: z.coerce.number().int().positive() });
+const EditReleaseBodySchema = z.object({
+  seriesId: z.number().int().positive().nullable().optional(),
+  season: z.number().int().nullable().optional(),
+  episode: z.number().int().nullable().optional(),
+  resolution: z.string().min(1).nullable().optional(),
+  source: z.string().min(1).nullable().optional(),
+  codec: z.string().min(1).nullable().optional(),
+  language: z.string().min(1).nullable().optional(),
+});
+const SeriesSearchQuerySchema = z.object({
+  search: z.string().min(1),
+  limit: z.coerce.number().int().positive().max(50).default(10),
+});
+const DownloadIdParamSchema = z.object({ id: z.coerce.number().int().positive() });
+const RetryDownloadParamSchema = z.object({ releaseId: z.coerce.number().int().positive() });
+const RetryDownloadBodySchema = z.object({ category: z.string().min(1).nullable().default(null) });
 
 export interface AppApiDeps {
   appAuth: AppAuthUseCases;
@@ -34,10 +60,16 @@ export interface AppApiDeps {
   ingestion: IngestionUseCases;
   channelStatus: ChannelStatusUseCases;
   messageInspection: MessageInspectionUseCases;
+  seriesRepo: SeriesRepository;
+  reviewQueue: ReviewQueueUseCases;
+  review: ReviewUseCases;
+  downloadQueue: DownloadQueueUseCases;
+  downloadControls: DownloadControls;
 }
 
 export function createAppApiRoutes(deps: AppApiDeps): Router {
-  const { appAuth, telegramAccess, ingestion, channelStatus, messageInspection } = deps;
+  const { appAuth, telegramAccess, ingestion, channelStatus, messageInspection, seriesRepo, reviewQueue, review, downloadQueue, downloadControls } =
+    deps;
   const router = Router();
 
   router.post("/auth/login", (req: Request, res: Response, next: NextFunction) => {
@@ -133,6 +165,77 @@ export function createAppApiRoutes(deps: AppApiDeps): Router {
     media.stream.pipe(res);
   });
 
+  router.get("/releases", async (req: Request, res: Response) => {
+    const { afterId, limit } = ListReleasesQuerySchema.parse(req.query);
+    res.json(await reviewQueue.listPendingReview({ afterId: afterId ?? null, limit }));
+  });
+
+  router.get("/releases/:id", async (req: Request, res: Response) => {
+    const { id } = ReleaseIdParamSchema.parse(req.params);
+    res.json(await reviewQueue.getReleaseDetail(id));
+  });
+
+  router.post("/releases/:id/approve", async (req: Request, res: Response) => {
+    const { id } = ReleaseIdParamSchema.parse(req.params);
+    res.json(await review.approveRelease(id, req.session.username!, Date.now()));
+  });
+
+  router.post("/releases/:id/reject", async (req: Request, res: Response) => {
+    const { id } = ReleaseIdParamSchema.parse(req.params);
+    res.json(await review.rejectRelease(id, req.session.username!, Date.now()));
+  });
+
+  router.post("/releases/:id/edit", async (req: Request, res: Response) => {
+    const { id } = ReleaseIdParamSchema.parse(req.params);
+    const input = EditReleaseBodySchema.parse(req.body);
+    res.json(await review.editRelease(id, input, req.session.username!, Date.now()));
+  });
+
+  router.get("/series", async (req: Request, res: Response) => {
+    const { search, limit } = SeriesSearchQuerySchema.parse(req.query);
+    res.json(await seriesRepo.search(search, limit));
+  });
+
+  router.get("/downloads", async (_req: Request, res: Response) => {
+    res.json(await downloadQueue.listDownloads());
+  });
+
+  router.post("/downloads/:id/pause", async (req: Request, res: Response) => {
+    const { id } = DownloadIdParamSchema.parse(req.params);
+    const download = await downloadControls.pauseDownload(id, Date.now());
+    if (!download) {
+      res.status(404).json({ error: "download_not_found" });
+      return;
+    }
+    res.json(download);
+  });
+
+  router.post("/downloads/:id/resume", async (req: Request, res: Response) => {
+    const { id } = DownloadIdParamSchema.parse(req.params);
+    const download = await downloadControls.resumeDownload(id, Date.now());
+    if (!download) {
+      res.status(404).json({ error: "download_not_found" });
+      return;
+    }
+    res.json(download);
+  });
+
+  router.post("/downloads/:id/cancel", async (req: Request, res: Response) => {
+    const { id } = DownloadIdParamSchema.parse(req.params);
+    const download = await downloadControls.cancelDownload(id, Date.now());
+    if (!download) {
+      res.status(404).json({ error: "download_not_found" });
+      return;
+    }
+    res.json(download);
+  });
+
+  router.post("/downloads/:releaseId/retry", async (req: Request, res: Response) => {
+    const { releaseId } = RetryDownloadParamSchema.parse(req.params);
+    const { category } = RetryDownloadBodySchema.parse(req.body);
+    res.status(201).json(await downloadControls.retryDownload(releaseId, category, Date.now()));
+  });
+
   router.use(errorMiddleware);
 
   return router;
@@ -152,6 +255,12 @@ const errorMiddleware: ErrorRequestHandler = (err: unknown, _req: Request, res: 
     return;
   }
   if (err instanceof ChatNotFoundError || err instanceof MessageUnavailableError) {
+    res.status(404).json({ error: err.name, message: err.message });
+    return;
+  }
+  // Both the review and downloads modules define their own ReleaseNotFoundError (each scoped
+  // to their own repository failure mode) — matched by name rather than importing both classes.
+  if (err instanceof Error && err.name === "ReleaseNotFoundError") {
     res.status(404).json({ error: err.name, message: err.message });
     return;
   }

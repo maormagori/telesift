@@ -126,4 +126,48 @@ describe("sqlite release repository", () => {
 
     await expect(repo.create({ mediaAssetId, fields: fields({ extractionRunId }), now: 2000 })).rejects.toThrow();
   });
+
+  it("listByReviewState returns only matching releases, oldest first", async () => {
+    const first = seedMediaAssetWithExtractionRun(db, 1);
+    const second = seedMediaAssetWithExtractionRun(db, 2);
+    const third = seedMediaAssetWithExtractionRun(db, 3);
+    const pending1 = await repo.create({
+      mediaAssetId: first.mediaAssetId,
+      fields: fields({ extractionRunId: first.extractionRunId }),
+      now: 1000,
+    });
+    await repo.create({
+      mediaAssetId: second.mediaAssetId,
+      fields: fields({ extractionRunId: second.extractionRunId, reviewState: "approved" }),
+      now: 1000,
+    });
+    const pending3 = await repo.create({
+      mediaAssetId: third.mediaAssetId,
+      fields: fields({ extractionRunId: third.extractionRunId }),
+      now: 1000,
+    });
+
+    const page = await repo.listByReviewState("pending_review", { afterId: null, limit: 10 });
+
+    expect(page.map((r) => r.id)).toEqual([pending1.id, pending3.id]);
+  });
+
+  it("listByReviewState pages forward with afterId", async () => {
+    const first = seedMediaAssetWithExtractionRun(db, 1);
+    const second = seedMediaAssetWithExtractionRun(db, 2);
+    const pending1 = await repo.create({
+      mediaAssetId: first.mediaAssetId,
+      fields: fields({ extractionRunId: first.extractionRunId }),
+      now: 1000,
+    });
+    const pending2 = await repo.create({
+      mediaAssetId: second.mediaAssetId,
+      fields: fields({ extractionRunId: second.extractionRunId }),
+      now: 1000,
+    });
+
+    const page = await repo.listByReviewState("pending_review", { afterId: pending1.id, limit: 10 });
+
+    expect(page.map((r) => r.id)).toEqual([pending2.id]);
+  });
 });
