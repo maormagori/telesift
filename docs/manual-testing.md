@@ -105,5 +105,16 @@ proxying `/api` to it. Open the Vite dev server's printed URL in a browser.
   media preview/download actually streams real bytes from Telegram.
 - Check the Telegram status screen matches `telegram-service`'s real
   connection/account state.
+- On the Dashboard, confirm it surfaces exactly what's broken (disconnected
+  Telegram, unresolved/erroring channels, pending-review count, failed
+  downloads) and nothing when everything's healthy.
+- With a `pending_review` release seeded (via `extraction-worker`, or
+  directly in SQLite for a quick check), open the Review queue, expand it,
+  confirm the original Telegram caption/media renders next to the extracted
+  fields, edit a field and save, then approve it and confirm it drops out of
+  the queue and the nav badge updates.
+- With `download-worker` running and a download in flight, confirm the
+  Downloads screen's progress/state track the real transfer, and that
+  pause/resume/cancel/retry actually change its `desiredState`.
 - Log out. Confirm the session cookie is cleared and protected screens bounce
   back to the login page.
