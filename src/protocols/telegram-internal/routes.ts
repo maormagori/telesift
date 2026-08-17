@@ -1,17 +1,7 @@
 import { Router, type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
-import { z, ZodError } from "zod";
-import { GetMessagesOptionsSchema } from "../../modules/telegram-access/ports/models.js";
-import {
-  ChatNotFoundError,
-  MessageUnavailableError,
-  type TelegramAccessUseCases,
-} from "../../modules/telegram-access/application/use-cases.js";
-
-const ChatIdParamSchema = z.object({ chatId: z.string().min(1) });
-const MessageIdParamSchema = z.object({
-  chatId: z.string().min(1),
-  messageId: z.coerce.number().int().positive(),
-});
+import { ZodError } from "zod";
+import { ChatIdParamSchema, GetMessagesOptionsSchema, MessageIdParamSchema } from "../../modules/telegram-access/ports/models.js";
+import { isTelegramAccessNotFoundError, type TelegramAccessUseCases } from "../../modules/telegram-access/application/use-cases.js";
 
 export function createTelegramInternalRoutes(useCases: TelegramAccessUseCases): Router {
   const router = Router();
@@ -88,7 +78,7 @@ const errorMiddleware: ErrorRequestHandler = (err: unknown, _req: Request, res: 
     res.status(400).json({ error: "invalid_request", issues: err.issues });
     return;
   }
-  if (err instanceof ChatNotFoundError || err instanceof MessageUnavailableError) {
+  if (isTelegramAccessNotFoundError(err)) {
     res.status(404).json({ error: err.name, message: err.message });
     return;
   }

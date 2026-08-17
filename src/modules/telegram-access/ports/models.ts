@@ -47,3 +47,9 @@ export const GetMessagesOptionsSchema = z.object({
   limit: z.coerce.number().int().positive().max(200).default(50),
 });
 export type GetMessagesOptions = z.infer<typeof GetMessagesOptionsSchema>;
+
+export const ChatIdParamSchema = z.object({ chatId: z.string().min(1) });
+export const MessageIdParamSchema = z.object({
+  chatId: z.string().min(1),
+  messageId: z.coerce.number().int().positive(),
+});

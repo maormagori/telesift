@@ -4,7 +4,8 @@ import { createTelegramAccessUseCases } from "../../modules/telegram-access/appl
 import type { TelegramAccessPort } from "../../modules/telegram-access/ports/telegram-access-port.js";
 import { loadConfig, type TelegramServiceConfig } from "../../platform/config/env.js";
 import { createLogger, type Logger } from "../../platform/logging/logger.js";
-import { acquireHeartbeatLock, LockHeldError, type HeartbeatLock } from "../../platform/singleton-lock/heartbeat-lock.js";
+import { installShutdownHandler } from "../../platform/process-lifecycle/graceful-shutdown.js";
+import { acquireHeartbeatLockOrExit } from "../../platform/singleton-lock/heartbeat-lock.js";
 import { createTelegramInternalServer } from "../../protocols/telegram-internal/server.js";
 
 function createAdapter(config: TelegramServiceConfig, logger: Logger): TelegramAccessPort {
@@ -19,16 +20,7 @@ async function main(): Promise<void> {
   const config = loadConfig();
   const logger = createLogger(config.logLevel);
 
-  let lock: HeartbeatLock;
-  try {
-    lock = await acquireHeartbeatLock(config.lockPath);
-  } catch (error) {
-    if (error instanceof LockHeldError) {
-      logger.error("telegram-service failed to start: lock already held", { message: error.message });
-      process.exit(1);
-    }
-    throw error;
-  }
+  const lock = await acquireHeartbeatLockOrExit(config.lockPath, logger, "telegram-service");
 
   const adapter = createAdapter(config, logger);
   const useCases = createTelegramAccessUseCases(adapter);
@@ -42,20 +34,12 @@ async function main(): Promise<void> {
     });
   });
 
-  let shuttingDown = false;
-  async function shutdown(signal: string): Promise<void> {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    logger.info("telegram-service shutting down", { signal });
+  installShutdownHandler(logger, "telegram-service", async () => {
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));
     });
     await lock.release();
-    process.exit(0);
-  }
-
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  });
 }
 
 main().catch((error: unknown) => {

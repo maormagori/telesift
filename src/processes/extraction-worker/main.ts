@@ -18,36 +18,15 @@ import { createBuildOrRefreshContextGroup } from "../../modules/context/applicat
 import { createProcessMediaProcessingJob } from "../../modules/extraction/application/process-media-processing-job.js";
 import { loadExtractionWorkerConfig } from "../../platform/config/extraction-worker-env.js";
 import { createLogger } from "../../platform/logging/logger.js";
-import { acquireHeartbeatLock, LockHeldError, type HeartbeatLock } from "../../platform/singleton-lock/heartbeat-lock.js";
-
-interface CancellableSleep {
-  promise: Promise<void>;
-  cancel: () => void;
-}
-
-function sleep(ms: number): CancellableSleep {
-  let resolveFn: () => void = () => {};
-  const promise = new Promise<void>((resolve) => {
-    resolveFn = resolve;
-  });
-  const timeoutHandle = setTimeout(resolveFn, ms);
-  return { promise, cancel: () => (clearTimeout(timeoutHandle), resolveFn()) };
-}
+import { installShutdownHandler } from "../../platform/process-lifecycle/graceful-shutdown.js";
+import { acquireHeartbeatLockOrExit } from "../../platform/singleton-lock/heartbeat-lock.js";
+import { createCancellableWait } from "../../platform/time/cancellable-sleep.js";
 
 async function main(): Promise<void> {
   const config = loadExtractionWorkerConfig();
   const logger = createLogger(config.logLevel);
 
-  let lock: HeartbeatLock;
-  try {
-    lock = await acquireHeartbeatLock(config.lockPath);
-  } catch (error) {
-    if (error instanceof LockHeldError) {
-      logger.error("extraction-worker failed to start: lock already held", { message: error.message });
-      process.exit(1);
-    }
-    throw error;
-  }
+  const lock = await acquireHeartbeatLockOrExit(config.lockPath, logger, "extraction-worker");
 
   const kysely = createKyselyDb(openDatabase(config.databasePath));
 
@@ -105,14 +84,7 @@ async function main(): Promise<void> {
 
   const workerId = randomUUID();
   let shuttingDown = false;
-  let currentSleep: CancellableSleep | null = null;
-
-  async function waitCancellable(ms: number): Promise<void> {
-    const delay = sleep(ms);
-    currentSleep = delay;
-    await delay.promise;
-    currentSleep = null;
-  }
+  const cancellableWait = createCancellableWait();
 
   async function runPass(): Promise<boolean> {
     const job = await jobRepo.claim({ workerId, now: Date.now(), leaseDurationMs: config.leaseDurationMs });
@@ -145,25 +117,19 @@ async function main(): Promise<void> {
     while (!shuttingDown) {
       const processed = await runPass();
       if (shuttingDown) break;
-      if (!processed) await waitCancellable(config.pollIntervalMs);
+      if (!processed) await cancellableWait.wait(config.pollIntervalMs);
     }
   }
 
   const loop = runLoop();
 
-  async function shutdown(signal: string): Promise<void> {
-    if (shuttingDown) return;
+  installShutdownHandler(logger, "extraction-worker", async () => {
     shuttingDown = true;
-    logger.info("extraction-worker shutting down", { signal });
-    currentSleep?.cancel();
+    cancellableWait.cancel();
     await loop;
     await lock.release();
     await kysely.destroy();
-    process.exit(0);
-  }
-
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  });
 }
 
 main().catch((error: unknown) => {

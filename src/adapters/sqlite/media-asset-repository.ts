@@ -3,7 +3,7 @@ import type { MediaAsset } from "../../modules/ingestion/domain/media-asset.js";
 import type { MediaAssetRepository } from "../../modules/ingestion/ports/media-asset-repository.js";
 import type { DB, MediaAssetsTable } from "./schema.js";
 
-function toMediaAsset(row: Selectable<MediaAssetsTable>): MediaAsset {
+export function toMediaAsset(row: Selectable<MediaAssetsTable>): MediaAsset {
   return {
     id: row.id,
     messageId: row.message_id,

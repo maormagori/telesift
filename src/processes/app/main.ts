@@ -23,6 +23,7 @@ import { createReviewUseCases } from "../../modules/review/application/review-us
 import { createTelegramAccessUseCases } from "../../modules/telegram-access/application/use-cases.js";
 import { loadAppConfig } from "../../platform/config/app-env.js";
 import { createLogger } from "../../platform/logging/logger.js";
+import { installShutdownHandler } from "../../platform/process-lifecycle/graceful-shutdown.js";
 import { createAppApiServer } from "../../protocols/app-api/server.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -77,20 +78,12 @@ async function main(): Promise<void> {
     logger.info("app listening", { host: config.host, port: config.port });
   });
 
-  let shuttingDown = false;
-  async function shutdown(signal: string): Promise<void> {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    logger.info("app shutting down", { signal });
+  installShutdownHandler(logger, "app", async () => {
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));
     });
     await kysely.destroy();
-    process.exit(0);
-  }
-
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  });
 }
 
 main().catch((error: unknown) => {

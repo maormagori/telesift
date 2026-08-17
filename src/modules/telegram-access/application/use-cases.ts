@@ -57,3 +57,7 @@ async function withChatTranslation<T>(chatId: string, operation: () => Promise<T
     throw error;
   }
 }
+
+export function isTelegramAccessNotFoundError(err: unknown): err is ChatNotFoundError | MessageUnavailableError {
+  return err instanceof ChatNotFoundError || err instanceof MessageUnavailableError;
+}

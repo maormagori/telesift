@@ -1,16 +1,17 @@
 import "dotenv/config";
 import { z } from "zod";
+import { DatabasePathField, LogLevelField, TelegramServiceUrlField } from "./shared-fields.js";
 
 const rawSchema = z.object({
-  DATABASE_PATH: z.string().default("./data/telesift.sqlite3"),
-  TELEGRAM_SERVICE_URL: z.string().default("http://127.0.0.1:4001"),
+  DATABASE_PATH: DatabasePathField,
+  TELEGRAM_SERVICE_URL: TelegramServiceUrlField,
   INGESTION_WORKER_LOCK_PATH: z.string().default("./data/ingestion-worker.lock"),
   INGESTION_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(30_000),
   INGESTION_PAGE_SIZE: z.coerce.number().int().positive().max(200).default(100),
   INGESTION_BACKFILL_MAX_MESSAGES: z.coerce.number().int().positive().optional(),
   INGESTION_RESCAN_WINDOW_SIZE: z.coerce.number().int().positive().default(100),
   INGESTION_RESCAN_INTERVAL_MS: z.coerce.number().int().positive().default(21_600_000),
-  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  LOG_LEVEL: LogLevelField,
 });
 
 export interface IngestionWorkerConfig {

@@ -3,7 +3,8 @@ import type { MediaAsset } from "../../modules/ingestion/domain/media-asset.js";
 import { computeMessageFingerprint } from "../../modules/ingestion/domain/message-fingerprint.js";
 import { TelegramMessageNotFoundError, type TelegramMessage } from "../../modules/ingestion/domain/telegram-message.js";
 import type { MessageRepository } from "../../modules/ingestion/ports/message-repository.js";
-import type { DB, MediaAssetsTable, TelegramMessagesTable } from "./schema.js";
+import { toMediaAsset } from "./media-asset-repository.js";
+import type { DB, TelegramMessagesTable } from "./schema.js";
 
 function toTelegramMessage(row: Selectable<TelegramMessagesTable>): TelegramMessage {
   return {
@@ -17,24 +18,6 @@ function toTelegramMessage(row: Selectable<TelegramMessagesTable>): TelegramMess
     sourceEditedAt: row.source_edited_at,
     fingerprint: row.fingerprint,
     deletedAt: row.deleted_at,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-function toMediaAsset(row: Selectable<MediaAssetsTable>): MediaAsset {
-  return {
-    id: row.id,
-    messageId: row.message_id,
-    fileName: row.file_name,
-    mimeType: row.mime_type,
-    sizeBytes: row.size_bytes,
-    durationSeconds: row.duration_seconds,
-    width: row.width,
-    height: row.height,
-    availability: row.availability,
-    lastVerifiedAt: row.last_verified_at,
-    unavailableAt: row.unavailable_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
