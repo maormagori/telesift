@@ -12,7 +12,8 @@ import type { ReviewUseCases } from "../../modules/review/application/review-use
 import type { DownloadQueueUseCases } from "../../modules/downloads/application/download-queue.js";
 import type { DownloadControls } from "../../modules/downloads/application/download-controls.js";
 import type { TelegramAccessUseCases } from "../../modules/telegram-access/application/use-cases.js";
-import { ChatNotFoundError, MessageUnavailableError } from "../../modules/telegram-access/application/use-cases.js";
+import { isTelegramAccessNotFoundError } from "../../modules/telegram-access/application/use-cases.js";
+import { ChatIdParamSchema, MessageIdParamSchema } from "../../modules/telegram-access/ports/models.js";
 import { requireAuth } from "./session.js";
 
 const LoginBodySchema = z.object({ username: z.string().min(1), password: z.string().min(1) });
@@ -22,11 +23,6 @@ const ChannelIdentifierBodySchema = z.object({
     z.object({ type: z.literal("telegram_id"), value: z.string().min(1) }),
     z.object({ type: z.literal("username"), value: z.string().min(1) }),
   ]),
-});
-const ChatIdParamSchema = z.object({ chatId: z.string().min(1) });
-const MessageIdParamSchema = z.object({
-  chatId: z.string().min(1),
-  messageId: z.coerce.number().int().positive(),
 });
 const MessagesPageQuerySchema = z.object({
   before: z.coerce.number().int().positive().optional(),
@@ -254,7 +250,7 @@ const errorMiddleware: ErrorRequestHandler = (err: unknown, _req: Request, res: 
     res.status(404).json({ error: err.name, message: err.message });
     return;
   }
-  if (err instanceof ChatNotFoundError || err instanceof MessageUnavailableError) {
+  if (isTelegramAccessNotFoundError(err)) {
     res.status(404).json({ error: err.name, message: err.message });
     return;
   }
