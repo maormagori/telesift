@@ -51,22 +51,6 @@ function toSnapshot(fields: ReleaseFields): ReleaseFieldsSnapshot {
   };
 }
 
-function releaseToSnapshot(release: Release): ReleaseFieldsSnapshot {
-  return {
-    seriesId: release.seriesId,
-    season: release.season,
-    episode: release.episode,
-    resolution: release.resolution,
-    source: release.source,
-    codec: release.codec,
-    language: release.language,
-    displayTitle: release.displayTitle,
-    reviewState: release.reviewState,
-    manuallyVerified: release.manuallyVerified,
-    manuallyVerifiedAt: release.manuallyVerifiedAt,
-  };
-}
-
 export function createMaterializeRelease(deps: MaterializeReleaseDeps) {
   return async function materializeRelease(input: MaterializeReleaseInput): Promise<MaterializeReleaseResult> {
     const aliases = await deps.seriesAliasRepo.listAll();
@@ -153,7 +137,7 @@ export function createMaterializeRelease(deps: MaterializeReleaseDeps) {
         releaseId: existing.id,
         extractionRunId: input.extractionRunId,
         changeSource: "extraction",
-        before: releaseToSnapshot(existing),
+        before: toSnapshot(existing),
         after: toSnapshot(fields),
         actor: "system",
         now: input.now,
@@ -161,7 +145,7 @@ export function createMaterializeRelease(deps: MaterializeReleaseDeps) {
       return { release: existing, changed: false };
     }
 
-    const before = releaseToSnapshot(existing);
+    const before = toSnapshot(existing);
     const updated = await deps.releaseRepo.update({ releaseId: existing.id, fields, now: input.now });
     await deps.releaseRevisionRepo.insert({
       releaseId: existing.id,
