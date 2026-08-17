@@ -68,6 +68,19 @@ Ticket slicing is adapted from Matt Pocock’s MIT-licensed `to-tickets` workflo
 - Before `done`, verify every acceptance criterion. `done` closes the issue and moves it to `Done`.
 - If an operation partially succeeds, report the issue number and run `sync` rather than creating another issue.
 
+## Clean up after merge
+
+Once a PR merges (or its worktree's work is abandoned), remove the dedicated worktree per AGENTS.md — don't let completed worktrees accumulate. Order matters; later steps assume earlier ones succeeded.
+
+1. Confirm the merge before removing anything: `gh pr view <number> --json state,mergedAt,mergeCommit`. Don't infer merge state from local branch position alone.
+2. `git fetch origin --prune` to sync remote-tracking refs and pick up branches GitHub already deleted.
+3. Remove the worktree:
+   - If this session created it with `EnterWorktree({name})`, `ExitWorktree({action: "remove"})` handles it directly.
+   - If it was created manually with `git worktree add`, or entered via `EnterWorktree({path})`, `ExitWorktree` will refuse — it only owns worktrees it created via `name`. Use `ExitWorktree({action: "keep"})` to return to the main checkout, then run `git worktree remove <path>` by hand from there. A worktree can't remove itself while it's the current directory.
+4. Delete the local branch with `git branch -d <branch>` (safe delete) first. **This can fail on genuinely-merged work**: git's safe delete checks commit ancestry, not diff content, so if the commits were cherry-picked or rebased onto a different branch before merging (rather than the original branch merging as-is), the SHAs won't match and git won't recognize it as merged even though the code is identical. Verify with `git diff <branch> main` (should be empty) or by checking the PR's merge commit before deciding whether to force-delete with `-D` — never do that automatically; confirm with the user first.
+5. Delete the remote branch if it's still there: don't assume GitHub auto-deletes merged branches — behavior is inconsistent even within one repo. Check `git branch -r`; if present, `git push origin --delete <branch>`.
+6. Before treating a worktree as clean enough to remove, discard any diff that came only from a fresh dependency install in that worktree (e.g. `package-lock.json` drift from platform-specific optional deps resolving differently) rather than mistaking it for real uncommitted work — `git status`/`git diff` to check, `git checkout -- <file>` to discard install-only noise.
+
 ## Helper commands
 
 Run `node <skill-directory>/scripts/project.mjs help` for exact options. The supported commands are `setup`, `inspect`, `capture`, `sync`, `move`, `priority`, `next`, `pull`, `slice`, `release`, `review`, and `done`.
