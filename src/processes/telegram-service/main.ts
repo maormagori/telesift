@@ -4,6 +4,7 @@ import { createTelegramAccessUseCases } from "../../modules/telegram-access/appl
 import type { TelegramAccessPort } from "../../modules/telegram-access/ports/telegram-access-port.js";
 import { loadConfig, type TelegramServiceConfig } from "../../platform/config/env.js";
 import { createLogger, type Logger } from "../../platform/logging/logger.js";
+import { installShutdownHandler } from "../../platform/process-lifecycle/graceful-shutdown.js";
 import { acquireHeartbeatLockOrExit } from "../../platform/singleton-lock/heartbeat-lock.js";
 import { createTelegramInternalServer } from "../../protocols/telegram-internal/server.js";
 
@@ -33,20 +34,12 @@ async function main(): Promise<void> {
     });
   });
 
-  let shuttingDown = false;
-  async function shutdown(signal: string): Promise<void> {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    logger.info("telegram-service shutting down", { signal });
+  installShutdownHandler(logger, "telegram-service", async () => {
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));
     });
     await lock.release();
-    process.exit(0);
-  }
-
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  });
 }
 
 main().catch((error: unknown) => {

@@ -8,6 +8,7 @@ import { createHttpTelegramAccessAdapter } from "../../adapters/telegram-rpc-cli
 import { createSyncChannelUseCase } from "../../modules/ingestion/application/sync-channel.js";
 import { loadIngestionWorkerConfig } from "../../platform/config/ingestion-worker-env.js";
 import { createLogger } from "../../platform/logging/logger.js";
+import { installShutdownHandler } from "../../platform/process-lifecycle/graceful-shutdown.js";
 import { acquireHeartbeatLockOrExit } from "../../platform/singleton-lock/heartbeat-lock.js";
 import { createCancellableWait } from "../../platform/time/cancellable-sleep.js";
 
@@ -63,19 +64,13 @@ async function main(): Promise<void> {
 
   const loop = runLoop();
 
-  async function shutdown(signal: string): Promise<void> {
-    if (shuttingDown) return;
+  installShutdownHandler(logger, "ingestion-worker", async () => {
     shuttingDown = true;
-    logger.info("ingestion-worker shutting down", { signal });
     cancellableWait.cancel();
     await loop;
     await lock.release();
     await kysely.destroy();
-    process.exit(0);
-  }
-
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  });
 }
 
 main().catch((error: unknown) => {

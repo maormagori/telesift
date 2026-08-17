@@ -18,6 +18,7 @@ import { createBuildOrRefreshContextGroup } from "../../modules/context/applicat
 import { createProcessMediaProcessingJob } from "../../modules/extraction/application/process-media-processing-job.js";
 import { loadExtractionWorkerConfig } from "../../platform/config/extraction-worker-env.js";
 import { createLogger } from "../../platform/logging/logger.js";
+import { installShutdownHandler } from "../../platform/process-lifecycle/graceful-shutdown.js";
 import { acquireHeartbeatLockOrExit } from "../../platform/singleton-lock/heartbeat-lock.js";
 import { createCancellableWait } from "../../platform/time/cancellable-sleep.js";
 
@@ -122,19 +123,13 @@ async function main(): Promise<void> {
 
   const loop = runLoop();
 
-  async function shutdown(signal: string): Promise<void> {
-    if (shuttingDown) return;
+  installShutdownHandler(logger, "extraction-worker", async () => {
     shuttingDown = true;
-    logger.info("extraction-worker shutting down", { signal });
     cancellableWait.cancel();
     await loop;
     await lock.release();
     await kysely.destroy();
-    process.exit(0);
-  }
-
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  });
 }
 
 main().catch((error: unknown) => {

@@ -10,6 +10,7 @@ import { createHttpTelegramAccessAdapter } from "../../adapters/telegram-rpc-cli
 import { createProcessDownloadClaim } from "../../modules/downloads/application/process-download-claim.js";
 import { loadDownloadWorkerConfig } from "../../platform/config/download-worker-env.js";
 import { createLogger } from "../../platform/logging/logger.js";
+import { installShutdownHandler } from "../../platform/process-lifecycle/graceful-shutdown.js";
 import { acquireHeartbeatLockOrExit } from "../../platform/singleton-lock/heartbeat-lock.js";
 import { createCancellableWait } from "../../platform/time/cancellable-sleep.js";
 
@@ -73,19 +74,13 @@ async function main(): Promise<void> {
 
   const loop = runLoop();
 
-  async function shutdown(signal: string): Promise<void> {
-    if (shuttingDown) return;
+  installShutdownHandler(logger, "download-worker", async () => {
     shuttingDown = true;
-    logger.info("download-worker shutting down", { signal });
     cancellableWait.cancel();
     await loop;
     await lock.release();
     await kysely.destroy();
-    process.exit(0);
-  }
-
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  });
 }
 
 main().catch((error: unknown) => {
