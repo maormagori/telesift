@@ -9,22 +9,9 @@ import { createSyncChannelUseCase } from "../../modules/ingestion/application/sy
 import { loadIngestionWorkerConfig } from "../../platform/config/ingestion-worker-env.js";
 import { createLogger } from "../../platform/logging/logger.js";
 import { acquireHeartbeatLock, LockHeldError, type HeartbeatLock } from "../../platform/singleton-lock/heartbeat-lock.js";
+import { createCancellableWait } from "../../platform/time/cancellable-sleep.js";
 
 const INTER_CHANNEL_DELAY_MS = 1000;
-
-interface CancellableSleep {
-  promise: Promise<void>;
-  cancel: () => void;
-}
-
-function sleep(ms: number): CancellableSleep {
-  let resolveFn: () => void = () => {};
-  const promise = new Promise<void>((resolve) => {
-    resolveFn = resolve;
-  });
-  const timeoutHandle = setTimeout(resolveFn, ms);
-  return { promise, cancel: () => (clearTimeout(timeoutHandle), resolveFn()) };
-}
 
 async function main(): Promise<void> {
   const config = loadIngestionWorkerConfig();
@@ -58,14 +45,7 @@ async function main(): Promise<void> {
   });
 
   let shuttingDown = false;
-  let currentSleep: CancellableSleep | null = null;
-
-  async function waitCancellable(ms: number): Promise<void> {
-    const delay = sleep(ms);
-    currentSleep = delay;
-    await delay.promise;
-    currentSleep = null;
-  }
+  const cancellableWait = createCancellableWait();
 
   async function runPass(): Promise<void> {
     const channels = (await channelRepo.list()).filter((channel) => channel.enabled);
@@ -73,7 +53,7 @@ async function main(): Promise<void> {
       if (shuttingDown) return;
       await syncChannelUseCase.syncChannel(channel, Date.now());
       if (shuttingDown) return;
-      await waitCancellable(INTER_CHANNEL_DELAY_MS);
+      await cancellableWait.wait(INTER_CHANNEL_DELAY_MS);
     }
   }
 
@@ -86,7 +66,7 @@ async function main(): Promise<void> {
     while (!shuttingDown) {
       await runPass();
       if (shuttingDown) break;
-      await waitCancellable(config.pollIntervalMs);
+      await cancellableWait.wait(config.pollIntervalMs);
     }
   }
 
@@ -96,7 +76,7 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info("ingestion-worker shutting down", { signal });
-    currentSleep?.cancel();
+    cancellableWait.cancel();
     await loop;
     await lock.release();
     await kysely.destroy();

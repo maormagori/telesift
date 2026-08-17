@@ -11,20 +11,7 @@ import { createProcessDownloadClaim } from "../../modules/downloads/application/
 import { loadDownloadWorkerConfig } from "../../platform/config/download-worker-env.js";
 import { createLogger } from "../../platform/logging/logger.js";
 import { acquireHeartbeatLock, LockHeldError, type HeartbeatLock } from "../../platform/singleton-lock/heartbeat-lock.js";
-
-interface CancellableSleep {
-  promise: Promise<void>;
-  cancel: () => void;
-}
-
-function sleep(ms: number): CancellableSleep {
-  let resolveFn: () => void = () => {};
-  const promise = new Promise<void>((resolve) => {
-    resolveFn = resolve;
-  });
-  const timeoutHandle = setTimeout(resolveFn, ms);
-  return { promise, cancel: () => (clearTimeout(timeoutHandle), resolveFn()) };
-}
+import { createCancellableWait } from "../../platform/time/cancellable-sleep.js";
 
 async function main(): Promise<void> {
   const config = loadDownloadWorkerConfig();
@@ -66,14 +53,7 @@ async function main(): Promise<void> {
 
   const workerId = randomUUID();
   let shuttingDown = false;
-  let currentSleep: CancellableSleep | null = null;
-
-  async function waitCancellable(ms: number): Promise<void> {
-    const delay = sleep(ms);
-    currentSleep = delay;
-    await delay.promise;
-    currentSleep = null;
-  }
+  const cancellableWait = createCancellableWait();
 
   async function runPass(): Promise<boolean> {
     const download = await downloadRepo.claim({ workerId, now: Date.now(), leaseDurationMs: config.leaseDurationMs });
@@ -96,7 +76,7 @@ async function main(): Promise<void> {
     while (!shuttingDown) {
       const processed = await runPass();
       if (shuttingDown) break;
-      if (!processed) await waitCancellable(config.pollIntervalMs);
+      if (!processed) await cancellableWait.wait(config.pollIntervalMs);
     }
   }
 
@@ -106,7 +86,7 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info("download-worker shutting down", { signal });
-    currentSleep?.cancel();
+    cancellableWait.cancel();
     await loop;
     await lock.release();
     await kysely.destroy();
