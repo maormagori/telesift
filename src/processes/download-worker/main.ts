@@ -10,23 +10,14 @@ import { createHttpTelegramAccessAdapter } from "../../adapters/telegram-rpc-cli
 import { createProcessDownloadClaim } from "../../modules/downloads/application/process-download-claim.js";
 import { loadDownloadWorkerConfig } from "../../platform/config/download-worker-env.js";
 import { createLogger } from "../../platform/logging/logger.js";
-import { acquireHeartbeatLock, LockHeldError, type HeartbeatLock } from "../../platform/singleton-lock/heartbeat-lock.js";
+import { acquireHeartbeatLockOrExit } from "../../platform/singleton-lock/heartbeat-lock.js";
 import { createCancellableWait } from "../../platform/time/cancellable-sleep.js";
 
 async function main(): Promise<void> {
   const config = loadDownloadWorkerConfig();
   const logger = createLogger(config.logLevel);
 
-  let lock: HeartbeatLock;
-  try {
-    lock = await acquireHeartbeatLock(config.lockPath);
-  } catch (error) {
-    if (error instanceof LockHeldError) {
-      logger.error("download-worker failed to start: lock already held", { message: error.message });
-      process.exit(1);
-    }
-    throw error;
-  }
+  const lock = await acquireHeartbeatLockOrExit(config.lockPath, logger, "download-worker");
 
   const kysely = createKyselyDb(openDatabase(config.databasePath));
 

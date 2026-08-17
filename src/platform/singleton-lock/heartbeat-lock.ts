@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, open, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type { Logger } from "../logging/logger.js";
 import type { Clock } from "../time/clock.js";
 import { systemClock } from "../time/clock.js";
 
@@ -54,6 +55,23 @@ export async function acquireHeartbeatLock(
       });
     },
   };
+}
+
+// Every process role acquires its lock the same way at startup: exit(1) after logging if held.
+export async function acquireHeartbeatLockOrExit(
+  lockPath: string,
+  logger: Logger,
+  roleName: string,
+): Promise<HeartbeatLock> {
+  try {
+    return await acquireHeartbeatLock(lockPath);
+  } catch (error) {
+    if (error instanceof LockHeldError) {
+      logger.error(`${roleName} failed to start: lock already held`, { message: error.message });
+      process.exit(1);
+    }
+    throw error;
+  }
 }
 
 async function createOrReclaim(lockPath: string, record: LockRecord, clock: Clock): Promise<void> {

@@ -8,7 +8,7 @@ import { createHttpTelegramAccessAdapter } from "../../adapters/telegram-rpc-cli
 import { createSyncChannelUseCase } from "../../modules/ingestion/application/sync-channel.js";
 import { loadIngestionWorkerConfig } from "../../platform/config/ingestion-worker-env.js";
 import { createLogger } from "../../platform/logging/logger.js";
-import { acquireHeartbeatLock, LockHeldError, type HeartbeatLock } from "../../platform/singleton-lock/heartbeat-lock.js";
+import { acquireHeartbeatLockOrExit } from "../../platform/singleton-lock/heartbeat-lock.js";
 import { createCancellableWait } from "../../platform/time/cancellable-sleep.js";
 
 const INTER_CHANNEL_DELAY_MS = 1000;
@@ -17,16 +17,7 @@ async function main(): Promise<void> {
   const config = loadIngestionWorkerConfig();
   const logger = createLogger(config.logLevel);
 
-  let lock: HeartbeatLock;
-  try {
-    lock = await acquireHeartbeatLock(config.lockPath);
-  } catch (error) {
-    if (error instanceof LockHeldError) {
-      logger.error("ingestion-worker failed to start: lock already held", { message: error.message });
-      process.exit(1);
-    }
-    throw error;
-  }
+  const lock = await acquireHeartbeatLockOrExit(config.lockPath, logger, "ingestion-worker");
 
   const kysely = createKyselyDb(openDatabase(config.databasePath));
   const channelRepo = createSqliteChannelRepository(kysely);

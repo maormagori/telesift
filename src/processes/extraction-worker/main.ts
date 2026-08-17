@@ -18,23 +18,14 @@ import { createBuildOrRefreshContextGroup } from "../../modules/context/applicat
 import { createProcessMediaProcessingJob } from "../../modules/extraction/application/process-media-processing-job.js";
 import { loadExtractionWorkerConfig } from "../../platform/config/extraction-worker-env.js";
 import { createLogger } from "../../platform/logging/logger.js";
-import { acquireHeartbeatLock, LockHeldError, type HeartbeatLock } from "../../platform/singleton-lock/heartbeat-lock.js";
+import { acquireHeartbeatLockOrExit } from "../../platform/singleton-lock/heartbeat-lock.js";
 import { createCancellableWait } from "../../platform/time/cancellable-sleep.js";
 
 async function main(): Promise<void> {
   const config = loadExtractionWorkerConfig();
   const logger = createLogger(config.logLevel);
 
-  let lock: HeartbeatLock;
-  try {
-    lock = await acquireHeartbeatLock(config.lockPath);
-  } catch (error) {
-    if (error instanceof LockHeldError) {
-      logger.error("extraction-worker failed to start: lock already held", { message: error.message });
-      process.exit(1);
-    }
-    throw error;
-  }
+  const lock = await acquireHeartbeatLockOrExit(config.lockPath, logger, "extraction-worker");
 
   const kysely = createKyselyDb(openDatabase(config.databasePath));
 
