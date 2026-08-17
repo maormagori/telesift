@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { z } from "zod";
+import { LogLevelField } from "./shared-fields.js";
 
 const rawSchema = z.object({
   TELEGRAM_API_ID: z.string().optional(),
@@ -9,7 +10,7 @@ const rawSchema = z.object({
   TELEGRAM_SERVICE_PORT: z.coerce.number().int().positive().default(4001),
   TELEGRAM_SERVICE_LOCK_PATH: z.string().default("./data/telegram-service.lock"),
   TELEGRAM_ADAPTER: z.enum(["teleproto", "fake"]).default("teleproto"),
-  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  LOG_LEVEL: LogLevelField,
 });
 
 export interface TelegramCredentials {

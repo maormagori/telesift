@@ -1,8 +1,9 @@
 import "dotenv/config";
 import { z } from "zod";
+import { DatabasePathField, LogLevelField } from "./shared-fields.js";
 
 const rawSchema = z.object({
-  DATABASE_PATH: z.string().default("./data/telesift.sqlite3"),
+  DATABASE_PATH: DatabasePathField,
   EXTRACTION_WORKER_LOCK_PATH: z.string().default("./data/extraction-worker.lock"),
   EXTRACTION_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5_000),
   EXTRACTION_LEASE_DURATION_MS: z.coerce.number().int().positive().default(120_000),
@@ -17,7 +18,7 @@ const rawSchema = z.object({
   LLM_MODEL: z.string().optional(),
   LLM_API_KEY: z.string().optional(),
   LLM_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
-  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  LOG_LEVEL: LogLevelField,
 });
 
 export interface ExtractionWorkerConfig {

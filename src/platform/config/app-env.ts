@@ -1,11 +1,12 @@
 import "dotenv/config";
 import { z } from "zod";
+import { DatabasePathField, LogLevelField, TelegramServiceUrlField } from "./shared-fields.js";
 
 const rawSchema = z.object({
   APP_HOST: z.string().default("0.0.0.0"),
   APP_PORT: z.coerce.number().int().positive().default(4000),
-  DATABASE_PATH: z.string().default("./data/telesift.sqlite3"),
-  TELEGRAM_SERVICE_URL: z.string().default("http://127.0.0.1:4001"),
+  DATABASE_PATH: DatabasePathField,
+  TELEGRAM_SERVICE_URL: TelegramServiceUrlField,
   APP_ADMIN_USERNAME: z.string().min(1),
   APP_ADMIN_PASSWORD_HASH: z.string().min(1),
   APP_SESSION_SECRET: z.string().min(1),
@@ -17,7 +18,7 @@ const rawSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
-  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  LOG_LEVEL: LogLevelField,
 });
 
 export interface AppConfig {
