@@ -46,35 +46,44 @@ export function Review() {
     if (expandedId === releaseId) setExpandedId(null);
   }
 
-  async function handleApprove(release: Release): Promise<void> {
-    setBusyId(release.id);
+  async function withBusy(id: number, action: () => Promise<unknown>, failureMessage: string): Promise<void> {
+    setBusyId(id);
     try {
-      await api.approveRelease(release.id);
-      showToast(`Approved ${release.displayTitle}`);
-      removeFromQueue(release.id);
-      notifyAttentionChanged();
+      await action();
     } catch {
-      showToast(`Could not approve ${release.displayTitle}`, "error");
+      showToast(failureMessage, "error");
     } finally {
       setBusyId(null);
     }
+  }
+
+  async function handleApprove(release: Release): Promise<void> {
+    await withBusy(
+      release.id,
+      async () => {
+        await api.approveRelease(release.id);
+        showToast(`Approved ${release.displayTitle}`);
+        removeFromQueue(release.id);
+        notifyAttentionChanged();
+      },
+      `Could not approve ${release.displayTitle}`,
+    );
   }
 
   async function confirmReject(): Promise<void> {
     if (!pendingReject) return;
     const release = pendingReject;
     setPendingReject(null);
-    setBusyId(release.id);
-    try {
-      await api.rejectRelease(release.id);
-      showToast(`Rejected ${release.displayTitle}`);
-      removeFromQueue(release.id);
-      notifyAttentionChanged();
-    } catch {
-      showToast(`Could not reject ${release.displayTitle}`, "error");
-    } finally {
-      setBusyId(null);
-    }
+    await withBusy(
+      release.id,
+      async () => {
+        await api.rejectRelease(release.id);
+        showToast(`Rejected ${release.displayTitle}`);
+        removeFromQueue(release.id);
+        notifyAttentionChanged();
+      },
+      `Could not reject ${release.displayTitle}`,
+    );
   }
 
   function handleSaved(updated: Release): void {
