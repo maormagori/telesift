@@ -16,6 +16,9 @@ function createFakeReleaseRepo(initial: Release[]): ReleaseRepository {
     async findByMediaAssetId(mediaAssetId) {
       return [...releases.values()].find((r) => r.mediaAssetId === mediaAssetId) ?? null;
     },
+    async listByReviewState() {
+      throw new Error("not used in review tests");
+    },
     async create() {
       throw new Error("not used in review tests");
     },
@@ -60,6 +63,9 @@ function createFakeSeriesRepo(series: Series[]): SeriesRepository {
       return series.find((s) => s.id === id) ?? null;
     },
     async create() {
+      throw new Error("not used in review tests");
+    },
+    async search() {
       throw new Error("not used in review tests");
     },
   };

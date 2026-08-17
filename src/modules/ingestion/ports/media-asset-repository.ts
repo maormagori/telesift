@@ -7,6 +7,8 @@ export interface UpdateMediaAssetAvailabilityInput {
 
 export interface MediaAssetRepository {
   findById(mediaAssetId: number): Promise<MediaAsset | null>;
+  /** Zero-or-one per message in v1 — see AGENTS.md's ingestion data model. */
+  findByMessageId(messageId: number): Promise<MediaAsset | null>;
   /** Sets availability plus lastVerifiedAt (when available) or unavailableAt (when unavailable). */
   updateAvailability(mediaAssetId: number, input: UpdateMediaAssetAvailabilityInput): Promise<void>;
 }

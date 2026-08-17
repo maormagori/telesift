@@ -205,5 +205,18 @@ export function createSqliteMessageRepository(db: Kysely<DB>): MessageRepository
         .execute();
       return rows.map(toTelegramMessage);
     },
+
+    async listMessagesPage(chatId, options) {
+      let query = db
+        .selectFrom("telegram_messages")
+        .selectAll()
+        .where("chat_id", "=", chatId)
+        .where("deleted_at", "is", null);
+      if (options.beforeTelegramMessageId !== null) {
+        query = query.where("telegram_message_id", "<", options.beforeTelegramMessageId);
+      }
+      const rows = await query.orderBy("telegram_message_id", "desc").limit(options.limit).execute();
+      return rows.map(toTelegramMessage);
+    },
   };
 }

@@ -53,6 +53,15 @@ export function createSqliteReleaseRepository(db: Kysely<DB>): ReleaseRepository
       return row ? toRelease(row) : null;
     },
 
+    async listByReviewState(reviewState, options) {
+      let query = db.selectFrom("releases").selectAll().where("review_state", "=", reviewState);
+      if (options.afterId !== null) {
+        query = query.where("id", ">", options.afterId);
+      }
+      const rows = await query.orderBy("id", "asc").limit(options.limit).execute();
+      return rows.map(toRelease);
+    },
+
     async create(input) {
       const row = await db
         .insertInto("releases")

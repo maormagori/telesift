@@ -1,0 +1,33 @@
+.downloads-title {
+  font-weight: 500;
+}
+
+.downloads-state-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.downloads-error {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.downloads-progress-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 180px;
+}
+
+.downloads-progress-cell .progress-bar {
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.downloads-actions {
+  display: flex;
+  gap: var(--space-2);
+}

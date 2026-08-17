@@ -41,6 +41,9 @@ function createFakeSeriesRepo(): SeriesRepository {
       series.set(s.id, s);
       return s;
     },
+    async search(query) {
+      return [...series.values()].filter((s) => s.canonicalTitle.toLowerCase().includes(query.toLowerCase()));
+    },
   };
 }
 
@@ -81,6 +84,12 @@ function createFakeReleaseRepo(initial: Release[] = []): ReleaseRepository {
     },
     async findByMediaAssetId(mediaAssetId) {
       return [...releases.values()].find((r) => r.mediaAssetId === mediaAssetId) ?? null;
+    },
+    async listByReviewState(reviewState, options) {
+      return [...releases.values()]
+        .filter((r) => r.reviewState === reviewState && (options.afterId === null || r.id > options.afterId))
+        .sort((a, b) => a.id - b.id)
+        .slice(0, options.limit);
     },
     async create(input) {
       const r: Release = { id: nextId++, mediaAssetId: input.mediaAssetId, ...input.fields, createdAt: input.now, updatedAt: input.now };

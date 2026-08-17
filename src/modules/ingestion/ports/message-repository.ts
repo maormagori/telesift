@@ -16,4 +16,12 @@ export interface MessageRepository {
   listPrecedingMessages(chatId: string, beforeTelegramMessageId: number, limit: number): Promise<TelegramMessage[]>;
   /** Non-deleted messages sharing `mediaGroupId` in the chat, in telegram_message_id order. */
   listByMediaGroup(chatId: string, mediaGroupId: string): Promise<TelegramMessage[]>;
+  /**
+   * Non-deleted messages for the chat, newest first, capped at `limit`, for UI browsing.
+   * Pass the last returned message's `telegramMessageId` as `beforeTelegramMessageId` to page further back; `null` starts from the newest message.
+   */
+  listMessagesPage(
+    chatId: string,
+    options: { beforeTelegramMessageId: number | null; limit: number },
+  ): Promise<TelegramMessage[]>;
 }

@@ -28,6 +28,11 @@ export function createSqliteMediaAssetRepository(db: Kysely<DB>): MediaAssetRepo
       return row ? toMediaAsset(row) : null;
     },
 
+    async findByMessageId(messageId) {
+      const row = await db.selectFrom("media_assets").selectAll().where("message_id", "=", messageId).executeTakeFirst();
+      return row ? toMediaAsset(row) : null;
+    },
+
     async updateAvailability(mediaAssetId, input) {
       await db
         .updateTable("media_assets")

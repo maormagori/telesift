@@ -51,4 +51,22 @@ describe("sqlite media asset repository", () => {
     const found = await repo.findById(mediaAsset.id);
     expect(found).toMatchObject({ id: mediaAsset.id, messageId: message.id, fileName: "video.mp4" });
   });
+
+  it("findByMessageId returns null when the message has no media asset", async () => {
+    expect(await repo.findByMessageId(999)).toBeNull();
+  });
+
+  it("findByMessageId returns the asset for a known message id", async () => {
+    const message = db
+      .prepare(
+        "INSERT INTO telegram_messages (chat_id, telegram_message_id, source_date, fingerprint, created_at, updated_at) VALUES ('-100123', 1, 1, 'fp', 1, 1) RETURNING id",
+      )
+      .get() as { id: number };
+    db.prepare(
+      "INSERT INTO media_assets (message_id, file_name, mime_type, created_at, updated_at) VALUES (?, 'video.mp4', 'video/mp4', 1, 1)",
+    ).run(message.id);
+
+    const found = await repo.findByMessageId(message.id);
+    expect(found).toMatchObject({ messageId: message.id, fileName: "video.mp4" });
+  });
 });

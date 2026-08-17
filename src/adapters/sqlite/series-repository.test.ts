@@ -37,4 +37,15 @@ describe("sqlite series repository", () => {
     const created = await repo.create({ canonicalTitle: "Fauda", originalLanguage: "he", now: 1000 });
     expect(await repo.findById(created.id)).toEqual(created);
   });
+
+  it("search matches canonicalTitle case-insensitively as a substring, capped at limit", async () => {
+    await repo.create({ canonicalTitle: "Fauda", originalLanguage: "he", now: 1000 });
+    await repo.create({ canonicalTitle: "The Wire", originalLanguage: "en", now: 1000 });
+    await repo.create({ canonicalTitle: "Breaking Bad", originalLanguage: "en", now: 1000 });
+
+    expect((await repo.search("faud", 10)).map((s) => s.canonicalTitle)).toEqual(["Fauda"]);
+    expect((await repo.search("bad", 10)).map((s) => s.canonicalTitle)).toEqual(["Breaking Bad"]);
+    expect(await repo.search("nonexistent", 10)).toEqual([]);
+    expect(await repo.search("a", 1)).toHaveLength(1);
+  });
 });

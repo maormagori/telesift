@@ -34,5 +34,16 @@ export function createSqliteSeriesRepository(db: Kysely<DB>): SeriesRepository {
       if (!row) throw new Error(`Failed to create series: ${input.canonicalTitle}`);
       return toSeries(row);
     },
+
+    async search(query, limit) {
+      const rows = await db
+        .selectFrom("series")
+        .selectAll()
+        .where("canonical_title", "like", `%${query}%`)
+        .orderBy("canonical_title", "asc")
+        .limit(limit)
+        .execute();
+      return rows.map(toSeries);
+    },
   };
 }

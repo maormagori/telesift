@@ -9,4 +9,6 @@ export interface CreateSeriesInput {
 export interface SeriesRepository {
   findById(seriesId: number): Promise<Series | null>;
   create(input: CreateSeriesInput): Promise<Series>;
+  /** Case-insensitive substring match on canonicalTitle, for the review edit form's series picker. */
+  search(query: string, limit: number): Promise<Series[]>;
 }
