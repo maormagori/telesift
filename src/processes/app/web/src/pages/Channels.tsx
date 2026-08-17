@@ -5,6 +5,7 @@ import { Button } from "../components/Button";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DataTable, type DataTableColumn } from "../components/DataTable";
 import { EmptyState } from "../components/EmptyState";
+import { Skeleton } from "../components/Skeleton";
 import { StatusPill, type StatusTone } from "../components/StatusPill";
 import { useToast } from "../components/Toast";
 import "./Channels.css";
@@ -129,7 +130,11 @@ export function Channels({ onOpenChat }: { onOpenChat: (chatId: string) => void 
       </form>
 
       {channels === null ? (
-        <p className="muted">Loading...</p>
+        <div className="skeleton-stack">
+          <Skeleton height="2.5rem" />
+          <Skeleton height="2.5rem" />
+          <Skeleton height="2.5rem" />
+        </div>
       ) : (
         <DataTable
           columns={columns}

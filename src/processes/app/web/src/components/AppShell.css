@@ -142,13 +142,22 @@
   .app-sidebar {
     width: 100%;
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
-    overflow-x: auto;
+    padding: var(--space-2) var(--space-3);
+  }
+  .app-sidebar-brand {
+    margin-bottom: 0;
   }
   .app-sidebar-nav {
     flex-direction: row;
+    flex: 1 1 auto;
+    overflow-x: auto;
   }
   .app-sidebar-status {
-    display: none;
+    flex-shrink: 0;
+    border-top: none;
+    margin-top: 0;
+    padding-top: 0;
   }
 }

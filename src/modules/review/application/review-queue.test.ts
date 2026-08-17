@@ -7,6 +7,8 @@ import type { Release } from "../../catalog/domain/release.js";
 import type { ReleaseRevision } from "../../catalog/domain/release-revision.js";
 import type { ReleaseRepository } from "../../catalog/ports/release-repository.js";
 import type { ReleaseRevisionRepository } from "../../catalog/ports/release-revision-repository.js";
+import type { Series } from "../../catalog/domain/series.js";
+import type { SeriesRepository } from "../../catalog/ports/series-repository.js";
 import { createReviewQueueUseCases } from "./review-queue.js";
 import { ReleaseNotFoundError } from "./review-use-cases.js";
 
@@ -95,6 +97,20 @@ function fakeRevisionRepo(revisions: ReleaseRevision[]): ReleaseRevisionReposito
   };
 }
 
+function fakeSeriesRepo(series: Series[]): SeriesRepository {
+  return {
+    async findById(id) {
+      return series.find((s) => s.id === id) ?? null;
+    },
+    async create() {
+      throw new Error("not used");
+    },
+    async search() {
+      throw new Error("not used");
+    },
+  };
+}
+
 describe("review queue use cases", () => {
   it("listPendingReview delegates to the repository", async () => {
     const releases = [release({ id: 1 }), release({ id: 2, reviewState: "approved" })];
@@ -103,6 +119,7 @@ describe("review queue use cases", () => {
       releaseRevisionRepo: fakeRevisionRepo([]),
       mediaAssetRepo: fakeMediaAssetRepo([]),
       messageRepo: fakeMessageRepo([]),
+      seriesRepo: fakeSeriesRepo([]),
     });
 
     const page = await useCases.listPendingReview({ afterId: null, limit: 10 });
@@ -174,11 +191,13 @@ describe("review queue use cases", () => {
       actor: "extraction",
       createdAt: 1000,
     };
+    const series: Series = { id: 1, canonicalTitle: "Fauda", originalLanguage: "he", createdAt: 1000, updatedAt: 1000 };
     const useCases = createReviewQueueUseCases({
-      releaseRepo: fakeReleaseRepo([release({ id: 1, mediaAssetId: 1 })]),
+      releaseRepo: fakeReleaseRepo([release({ id: 1, mediaAssetId: 1, seriesId: 1 })]),
       releaseRevisionRepo: fakeRevisionRepo([revision]),
       mediaAssetRepo: fakeMediaAssetRepo([media]),
       messageRepo: fakeMessageRepo([message]),
+      seriesRepo: fakeSeriesRepo([series]),
     });
 
     const detail = await useCases.getReleaseDetail(1);
@@ -187,6 +206,21 @@ describe("review queue use cases", () => {
     expect(detail.source.media).toEqual(media);
     expect(detail.source.message).toEqual(message);
     expect(detail.revisions).toEqual([revision]);
+    expect(detail.seriesTitle).toBe("Fauda");
+  });
+
+  it("getReleaseDetail returns a null seriesTitle when the release has no series assigned", async () => {
+    const useCases = createReviewQueueUseCases({
+      releaseRepo: fakeReleaseRepo([release({ id: 1, mediaAssetId: 1, seriesId: null })]),
+      releaseRevisionRepo: fakeRevisionRepo([]),
+      mediaAssetRepo: fakeMediaAssetRepo([]),
+      messageRepo: fakeMessageRepo([]),
+      seriesRepo: fakeSeriesRepo([]),
+    });
+
+    const detail = await useCases.getReleaseDetail(1);
+
+    expect(detail.seriesTitle).toBeNull();
   });
 
   it("getReleaseDetail throws ReleaseNotFoundError for an unknown release", async () => {
@@ -195,6 +229,7 @@ describe("review queue use cases", () => {
       releaseRevisionRepo: fakeRevisionRepo([]),
       mediaAssetRepo: fakeMediaAssetRepo([]),
       messageRepo: fakeMessageRepo([]),
+      seriesRepo: fakeSeriesRepo([]),
     });
 
     await expect(useCases.getReleaseDetail(999)).rejects.toThrow(ReleaseNotFoundError);

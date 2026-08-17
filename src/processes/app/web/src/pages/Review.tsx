@@ -7,6 +7,7 @@ import { EmptyState } from "../components/EmptyState";
 import { MediaPreview } from "../components/MediaPreview";
 import { Skeleton } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
+import { notifyAttentionChanged } from "../lib/refresh-bus";
 import { ReleaseEditForm } from "./ReleaseEditForm";
 import "./Review.css";
 
@@ -51,6 +52,7 @@ export function Review() {
       await api.approveRelease(release.id);
       showToast(`Approved ${release.displayTitle}`);
       removeFromQueue(release.id);
+      notifyAttentionChanged();
     } catch {
       showToast(`Could not approve ${release.displayTitle}`, "error");
     } finally {
@@ -67,6 +69,7 @@ export function Review() {
       await api.rejectRelease(release.id);
       showToast(`Rejected ${release.displayTitle}`);
       removeFromQueue(release.id);
+      notifyAttentionChanged();
     } catch {
       showToast(`Could not reject ${release.displayTitle}`, "error");
     } finally {
@@ -85,7 +88,11 @@ export function Review() {
     <div>
       <h2>Review queue</h2>
       {releases === null ? (
-        <p className="muted">Loading...</p>
+        <div className="skeleton-stack">
+          <Skeleton height="2.5rem" />
+          <Skeleton height="2.5rem" />
+          <Skeleton height="2.5rem" />
+        </div>
       ) : releases.length === 0 ? (
         <EmptyState icon={<ListVideo size={28} />} title="Nothing waiting for review" description="Extracted candidates will show up here." />
       ) : (
@@ -133,7 +140,12 @@ export function Review() {
                     )}
 
                     {editingId === release.id ? (
-                      <ReleaseEditForm release={release} onSaved={handleSaved} onCancel={() => setEditingId(null)} />
+                      <ReleaseEditForm
+                        release={release}
+                        currentSeriesTitle={detail?.seriesTitle ?? null}
+                        onSaved={handleSaved}
+                        onCancel={() => setEditingId(null)}
+                      />
                     ) : (
                       <div className="review-item-actions">
                         <Button variant="ghost" onClick={() => setEditingId(release.id)}>

@@ -130,6 +130,7 @@ export interface ReleaseDetail {
   release: Release;
   source: { message: TelegramMessage | null; media: MediaAsset | null };
   revisions: ReleaseRevision[];
+  seriesTitle: string | null;
 }
 
 export interface EditReleaseInput {

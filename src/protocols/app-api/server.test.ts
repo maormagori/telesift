@@ -119,7 +119,7 @@ describe("app-api server", () => {
         channelStatus: createChannelStatusUseCases({ channelRepo, chatSyncStateRepo, resolver }),
         messageInspection: createMessageInspectionUseCases({ messageRepo, mediaAssetRepo }),
         seriesRepo,
-        reviewQueue: createReviewQueueUseCases({ releaseRepo, releaseRevisionRepo, mediaAssetRepo, messageRepo }),
+        reviewQueue: createReviewQueueUseCases({ releaseRepo, releaseRevisionRepo, mediaAssetRepo, messageRepo, seriesRepo }),
         review: createReviewUseCases({ releaseRepo, releaseRevisionRepo, seriesRepo }),
         downloadQueue: createDownloadQueueUseCases({ downloadRepo, releaseRepo }),
         downloadControls: createDownloadControls({ releaseRepo, downloadRepo }),
@@ -385,6 +385,11 @@ describe("app-api server", () => {
     expect(editRes.status).toBe(200);
     const edited = (await editRes.json()) as { displayTitle: string };
     expect(edited.displayTitle).toBe("Fauda.S04E03.1080p.Telegram");
+
+    const detailRes = await fetch(`${baseUrl}/releases/${created.id}`, { headers: { Cookie: cookie } });
+    expect(detailRes.status).toBe(200);
+    const detail = (await detailRes.json()) as { seriesTitle: string | null };
+    expect(detail.seriesTitle).toBe("Fauda");
   });
 
   it("monitors and controls a download", async () => {

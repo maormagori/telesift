@@ -2,6 +2,7 @@ import { AlertTriangle, CheckCircle2, Download, ListVideo, Radio, WifiOff } from
 import { useEffect, useState } from "react";
 import { api, type ChannelWithStatus, type ConnectionStatus, type DownloadWithRelease } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
+import { Skeleton } from "../components/Skeleton";
 import "./Dashboard.css";
 
 interface AttentionItem {
@@ -82,7 +83,10 @@ export function Dashboard({ navigate }: { navigate: (path: string) => void }) {
     <div>
       <h2>Dashboard</h2>
       {loading ? (
-        <p className="muted">Loading...</p>
+        <div className="skeleton-stack">
+          <Skeleton height="3.5rem" />
+          <Skeleton height="3.5rem" />
+        </div>
       ) : attention.length === 0 ? (
         <EmptyState icon={<CheckCircle2 size={28} />} title="All clear" description="Nothing needs your attention right now." />
       ) : (

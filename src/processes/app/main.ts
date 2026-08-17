@@ -55,7 +55,7 @@ async function main(): Promise<void> {
       channelStatus: createChannelStatusUseCases({ channelRepo, chatSyncStateRepo, resolver }),
       messageInspection: createMessageInspectionUseCases({ messageRepo, mediaAssetRepo }),
       seriesRepo,
-      reviewQueue: createReviewQueueUseCases({ releaseRepo, releaseRevisionRepo, mediaAssetRepo, messageRepo }),
+      reviewQueue: createReviewQueueUseCases({ releaseRepo, releaseRevisionRepo, mediaAssetRepo, messageRepo, seriesRepo }),
       review: createReviewUseCases({ releaseRepo, releaseRevisionRepo, seriesRepo }),
       downloadQueue: createDownloadQueueUseCases({ downloadRepo, releaseRepo }),
       downloadControls: createDownloadControls({ releaseRepo, downloadRepo }),

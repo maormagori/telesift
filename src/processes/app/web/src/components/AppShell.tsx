@@ -1,6 +1,7 @@
 import { Download, LayoutDashboard, ListVideo, LogOut, Radio, Wifi, WifiOff } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../api/client";
+import { onAttentionChanged } from "../lib/refresh-bus";
 import "./AppShell.css";
 
 const POLL_INTERVAL_MS = 30_000;
@@ -54,9 +55,11 @@ export function AppShell({
 
     void poll();
     const interval = setInterval(() => void poll(), POLL_INTERVAL_MS);
+    const unsubscribe = onAttentionChanged(() => void poll());
     return () => {
       cancelled = true;
       clearInterval(interval);
+      unsubscribe();
     };
   }, []);
 

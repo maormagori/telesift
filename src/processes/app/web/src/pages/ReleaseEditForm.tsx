@@ -10,10 +10,12 @@ function toFormValue(value: string | number | null): string {
 
 export function ReleaseEditForm({
   release,
+  currentSeriesTitle,
   onSaved,
   onCancel,
 }: {
   release: Release;
+  currentSeriesTitle: string | null;
   onSaved: (updated: Release) => void;
   onCancel: () => void;
 }) {
@@ -26,7 +28,7 @@ export function ReleaseEditForm({
   const [seriesId, setSeriesId] = useState(release.seriesId);
   const [seriesQuery, setSeriesQuery] = useState("");
   const [seriesResults, setSeriesResults] = useState<Series[]>([]);
-  const [selectedSeriesTitle, setSelectedSeriesTitle] = useState<string | null>(null);
+  const [selectedSeriesTitle, setSelectedSeriesTitle] = useState<string | null>(currentSeriesTitle);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {

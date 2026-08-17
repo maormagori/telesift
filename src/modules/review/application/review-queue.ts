@@ -6,6 +6,7 @@ import type { Release } from "../../catalog/domain/release.js";
 import type { ReleaseRevision } from "../../catalog/domain/release-revision.js";
 import type { ReleaseRepository } from "../../catalog/ports/release-repository.js";
 import type { ReleaseRevisionRepository } from "../../catalog/ports/release-revision-repository.js";
+import type { SeriesRepository } from "../../catalog/ports/series-repository.js";
 import { ReleaseNotFoundError } from "./review-use-cases.js";
 
 export interface ReleaseSourceContext {
@@ -17,6 +18,7 @@ export interface ReleaseDetail {
   release: Release;
   source: ReleaseSourceContext;
   revisions: ReleaseRevision[];
+  seriesTitle: string | null;
 }
 
 export interface ReviewQueueDeps {
@@ -24,6 +26,7 @@ export interface ReviewQueueDeps {
   releaseRevisionRepo: ReleaseRevisionRepository;
   mediaAssetRepo: MediaAssetRepository;
   messageRepo: MessageRepository;
+  seriesRepo: SeriesRepository;
 }
 
 export interface ReviewQueueUseCases {
@@ -46,8 +49,9 @@ export function createReviewQueueUseCases(deps: ReviewQueueDeps): ReviewQueueUse
       const media = await deps.mediaAssetRepo.findById(release.mediaAssetId);
       const message = media ? await deps.messageRepo.findById(media.messageId) : null;
       const revisions = await deps.releaseRevisionRepo.listByReleaseId(releaseId);
+      const series = release.seriesId !== null ? await deps.seriesRepo.findById(release.seriesId) : null;
 
-      return { release, source: { message, media }, revisions };
+      return { release, source: { message, media }, revisions, seriesTitle: series?.canonicalTitle ?? null };
     },
   };
 }
