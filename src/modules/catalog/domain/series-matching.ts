@@ -66,6 +66,35 @@ export interface SeriesMatchResult {
   score: number;
 }
 
+export interface SeriesAliasMatch {
+  seriesId: number;
+  score: number;
+}
+
+/**
+ * The Torznab search variant of resolveSeries: a query may legitimately match more than
+ * one local series, and unlike extraction there is no "create a new candidate" fallback
+ * — an unmatched query simply returns zero results, so precision matters more here than
+ * in resolveSeries's single-best-match, safe-fallback semantics. Returns every series
+ * scoring at/above the threshold (max score across its aliases), best first.
+ */
+export function matchSeriesAliases(queryText: string, candidates: SeriesMatchCandidate[], threshold: number): SeriesAliasMatch[] {
+  const query = normalizeAliasText(queryText);
+  if (query.length === 0 || candidates.length === 0) return [];
+
+  const bestScoreBySeriesId = new Map<number, number>();
+  for (const candidate of candidates) {
+    const score = bestMatchScore(query, candidate.aliasNormalized);
+    const current = bestScoreBySeriesId.get(candidate.seriesId);
+    if (current === undefined || score > current) bestScoreBySeriesId.set(candidate.seriesId, score);
+  }
+
+  return [...bestScoreBySeriesId.entries()]
+    .filter(([, score]) => score >= threshold)
+    .map(([seriesId, score]) => ({ seriesId, score }))
+    .sort((a, b) => b.score - a.score);
+}
+
 export function resolveSeries(
   observedTitle: string | null,
   filenameSlug: string | null,

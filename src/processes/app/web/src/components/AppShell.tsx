@@ -1,4 +1,4 @@
-import { Download, LayoutDashboard, ListVideo, LogOut, Radio, Wifi, WifiOff } from "lucide-react";
+import { Download, LayoutDashboard, ListVideo, LogOut, Radio, Search, Wifi, WifiOff } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../api/client";
 import { onAttentionChanged } from "../lib/refresh-bus";
@@ -69,6 +69,7 @@ export function AppShell({
     { label: "Telegram status", path: "/telegram-status", icon: Wifi },
     { label: "Review", path: "/review", icon: ListVideo, badge: pendingReviewCount },
     { label: "Downloads", path: "/downloads", icon: Download, badge: attentionDownloadCount },
+    { label: "Search simulator", path: "/search", icon: Search },
   ];
 
   return (

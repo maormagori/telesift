@@ -15,6 +15,8 @@ import { createSqliteMessageRepository } from "../../adapters/sqlite/message-rep
 import { applyMigrations, MIGRATIONS_DIR } from "../../adapters/sqlite/migrate.js";
 import { createSqliteReleaseRepository } from "../../adapters/sqlite/release-repository.js";
 import { createSqliteReleaseRevisionRepository } from "../../adapters/sqlite/release-revision-repository.js";
+import { createSqliteReleaseSearchRepository } from "../../adapters/sqlite/release-search-repository.js";
+import { createSqliteSeriesAliasRepository } from "../../adapters/sqlite/series-alias-repository.js";
 import type { DB } from "../../adapters/sqlite/schema.js";
 import { createSqliteSeriesRepository } from "../../adapters/sqlite/series-repository.js";
 import { createSqliteTelegramChatRepository } from "../../adapters/sqlite/telegram-chat-repository.js";
@@ -28,6 +30,7 @@ import { createMessageInspectionUseCases } from "../../modules/ingestion/applica
 import { createChannelStatusUseCases, createIngestionUseCases } from "../../modules/ingestion/application/use-cases.js";
 import { createReviewQueueUseCases } from "../../modules/review/application/review-queue.js";
 import { createReviewUseCases } from "../../modules/review/application/review-use-cases.js";
+import { createSearchReleasesUseCase } from "../../modules/search/application/search-releases.js";
 import { createTelegramAccessUseCases } from "../../modules/telegram-access/application/use-cases.js";
 import { createAppApiServer } from "./server.js";
 
@@ -123,6 +126,11 @@ describe("app-api server", () => {
         review: createReviewUseCases({ releaseRepo, releaseRevisionRepo, seriesRepo }),
         downloadQueue: createDownloadQueueUseCases({ downloadRepo, releaseRepo }),
         downloadControls: createDownloadControls({ releaseRepo, downloadRepo }),
+        search: createSearchReleasesUseCase({
+          seriesAliasRepo: createSqliteSeriesAliasRepository(kysely),
+          releaseSearchRepo: createSqliteReleaseSearchRepository(kysely),
+          seriesMatchThreshold: 0.85,
+        }),
       },
       { secret: "test-secret", cookieSecure: false },
     );
@@ -456,5 +464,61 @@ describe("app-api server", () => {
 
     const res = await fetch(`${baseUrl}/downloads/999/pause`, { method: "POST", headers: { Cookie: cookie } });
     expect(res.status).toBe(404);
+  });
+
+  it("GET /search requires a session", async () => {
+    await startServer();
+    const res = await fetch(`${baseUrl}/search?q=Fauda`);
+    expect(res.status).toBe(401);
+  });
+
+  it("GET /search matches against series aliases and includes a magnet uri", async () => {
+    await startServer([]);
+    const cookie = await login();
+    const series = await seriesRepo.create({ canonicalTitle: "Fauda", originalLanguage: "he", now: 1000 });
+    await createSqliteSeriesAliasRepository(kysely).create({
+      seriesId: series.id,
+      aliasNormalized: "fauda",
+      aliasOriginal: "Fauda",
+      language: "en",
+      source: "manual",
+      now: 1000,
+    });
+    const { mediaAssetId, extractionRunId } = seedReleaseSource(db, 1);
+    const release = await releaseRepo.create({
+      mediaAssetId,
+      fields: {
+        seriesId: series.id,
+        extractionRunId,
+        season: 4,
+        episode: 3,
+        resolution: "1080p",
+        source: null,
+        codec: null,
+        language: "he",
+        displayTitle: "Fauda.S04E03.1080p.Telegram",
+        reviewState: "approved",
+        manuallyVerified: true,
+        manuallyVerifiedAt: 1000,
+      },
+      now: 1000,
+    });
+
+    const res = await fetch(`${baseUrl}/search?q=Fauda`, { headers: { Cookie: cookie } });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { items: Array<{ release: { id: number }; magnetUri: string }>; total: number; matchedSeriesIds: number[] };
+    expect(body.matchedSeriesIds).toEqual([series.id]);
+    expect(body.total).toBe(1);
+    expect(body.items[0]?.release.id).toBe(release.id);
+    expect(body.items[0]?.magnetUri).toContain("magnet:?xt=urn:btih:");
+  });
+
+  it("GET /search returns zero results with an empty matchedSeriesIds for an unknown title", async () => {
+    await startServer([]);
+    const cookie = await login();
+
+    const res = await fetch(`${baseUrl}/search?q=Some+Unknown+Show`, { headers: { Cookie: cookie } });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ items: [], total: 0, matchedSeriesIds: [] });
   });
 });

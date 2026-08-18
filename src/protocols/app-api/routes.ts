@@ -7,10 +7,12 @@ import type { ChannelStatusUseCases } from "../../modules/ingestion/application/
 import type { IngestionUseCases } from "../../modules/ingestion/application/use-cases.js";
 import type { MessageInspectionUseCases } from "../../modules/ingestion/application/message-inspection.js";
 import type { SeriesRepository } from "../../modules/catalog/ports/series-repository.js";
+import { releaseIdToMagnetUri } from "../../modules/catalog/domain/release-magnet.js";
 import type { ReviewQueueUseCases } from "../../modules/review/application/review-queue.js";
 import type { ReviewUseCases } from "../../modules/review/application/review-use-cases.js";
 import type { DownloadQueueUseCases } from "../../modules/downloads/application/download-queue.js";
 import type { DownloadControls } from "../../modules/downloads/application/download-controls.js";
+import type { SearchReleasesOutput, SearchReleasesQuery } from "../../modules/search/application/search-releases.js";
 import type { TelegramAccessUseCases } from "../../modules/telegram-access/application/use-cases.js";
 import { isTelegramAccessNotFoundError } from "../../modules/telegram-access/application/use-cases.js";
 import { ChatIdParamSchema, MessageIdParamSchema } from "../../modules/telegram-access/ports/models.js";
@@ -49,6 +51,13 @@ const SeriesSearchQuerySchema = z.object({
 const DownloadIdParamSchema = z.object({ id: z.coerce.number().int().positive() });
 const RetryDownloadParamSchema = z.object({ releaseId: z.coerce.number().int().positive() });
 const RetryDownloadBodySchema = z.object({ category: z.string().min(1).nullable().default(null) });
+const SearchQuerySchema = z.object({
+  q: z.string().optional(),
+  season: z.coerce.number().int().optional(),
+  episode: z.coerce.number().int().optional(),
+  offset: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce.number().int().positive().max(100).default(50),
+});
 
 export interface AppApiDeps {
   appAuth: AppAuthUseCases;
@@ -61,11 +70,23 @@ export interface AppApiDeps {
   review: ReviewUseCases;
   downloadQueue: DownloadQueueUseCases;
   downloadControls: DownloadControls;
+  search: (query: SearchReleasesQuery) => Promise<SearchReleasesOutput>;
 }
 
 export function createAppApiRoutes(deps: AppApiDeps): Router {
-  const { appAuth, telegramAccess, ingestion, channelStatus, messageInspection, seriesRepo, reviewQueue, review, downloadQueue, downloadControls } =
-    deps;
+  const {
+    appAuth,
+    telegramAccess,
+    ingestion,
+    channelStatus,
+    messageInspection,
+    seriesRepo,
+    reviewQueue,
+    review,
+    downloadQueue,
+    downloadControls,
+    search,
+  } = deps;
   const router = Router();
 
   router.post("/auth/login", (req: Request, res: Response, next: NextFunction) => {
@@ -230,6 +251,18 @@ export function createAppApiRoutes(deps: AppApiDeps): Router {
     const { releaseId } = RetryDownloadParamSchema.parse(req.params);
     const { category } = RetryDownloadBodySchema.parse(req.body);
     res.status(201).json(await downloadControls.retryDownload(releaseId, category, Date.now()));
+  });
+
+  // Backs the operator-facing search simulator — calls the same use case as the
+  // Torznab protocol endpoint, so results match exactly what Sonarr would see.
+  router.get("/search", async (req: Request, res: Response) => {
+    const { q, season, episode, offset, limit } = SearchQuerySchema.parse(req.query);
+    const result = await search({ queryText: q ?? null, season: season ?? null, episode: episode ?? null, offset, limit });
+    res.json({
+      items: result.items.map((item) => ({ ...item, magnetUri: releaseIdToMagnetUri(item.release.id) })),
+      total: result.total,
+      matchedSeriesIds: result.matchedSeriesIds,
+    });
   });
 
   router.use(errorMiddleware);
