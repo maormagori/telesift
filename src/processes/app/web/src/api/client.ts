@@ -179,6 +179,27 @@ export interface DownloadWithRelease {
   release: Release | null;
 }
 
+export interface SearchResultItem {
+  release: Release;
+  sizeBytes: number | null;
+  availability: "available" | "unknown" | "unavailable";
+  magnetUri: string;
+}
+
+export interface SearchResult {
+  items: SearchResultItem[];
+  total: number;
+  matchedSeriesIds: number[];
+}
+
+export interface SearchQuery {
+  q?: string;
+  season?: number;
+  episode?: number;
+  offset?: number;
+  limit?: number;
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -272,4 +293,15 @@ export const api = {
 
   retryDownload: (releaseId: number, category: string | null = null) =>
     request<Download>(`/downloads/${releaseId}/retry`, { method: "POST", body: JSON.stringify({ category }) }),
+
+  search: (query: SearchQuery) => {
+    const params = new URLSearchParams();
+    if (query.q !== undefined) params.set("q", query.q);
+    if (query.season !== undefined) params.set("season", String(query.season));
+    if (query.episode !== undefined) params.set("episode", String(query.episode));
+    if (query.offset !== undefined) params.set("offset", String(query.offset));
+    if (query.limit !== undefined) params.set("limit", String(query.limit));
+    const qs = params.toString();
+    return request<SearchResult>(`/search${qs ? `?${qs}` : ""}`);
+  },
 };

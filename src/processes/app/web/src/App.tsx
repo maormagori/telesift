@@ -8,6 +8,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Downloads } from "./pages/Downloads";
 import { Login } from "./pages/Login";
 import { Review } from "./pages/Review";
+import { SearchSimulator } from "./pages/SearchSimulator";
 import { TelegramStatus } from "./pages/TelegramStatus";
 import { usePath } from "./router";
 
@@ -47,6 +48,8 @@ export function App() {
           <Review />
         ) : path === "/downloads" ? (
           <Downloads />
+        ) : path === "/search" ? (
+          <SearchSimulator />
         ) : chatMatch ? (
           <ChatMessages key={chatMatch[1]} chatId={decodeURIComponent(chatMatch[1]!)} onBack={() => navigate("/channels")} />
         ) : (

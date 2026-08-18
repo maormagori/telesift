@@ -1,12 +1,12 @@
 import "dotenv/config";
 import { z } from "zod";
-import { DatabasePathField, LogLevelField, TelegramServiceUrlField } from "./shared-fields.js";
+import { DatabasePathField, DownloadStagingDirectoryField, LogLevelField, TelegramServiceUrlField } from "./shared-fields.js";
 
 const rawSchema = z.object({
   DATABASE_PATH: DatabasePathField,
   TELEGRAM_SERVICE_URL: TelegramServiceUrlField,
   DOWNLOAD_WORKER_LOCK_PATH: z.string().default("./data/download-worker.lock"),
-  DOWNLOAD_STAGING_DIRECTORY: z.string().default("./data/staging"),
+  DOWNLOAD_STAGING_DIRECTORY: DownloadStagingDirectoryField,
   DOWNLOAD_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5_000),
   DOWNLOAD_LEASE_DURATION_MS: z.coerce.number().int().positive().default(60_000),
   DOWNLOAD_PROGRESS_REPORT_INTERVAL_MS: z.coerce.number().int().positive().default(5_000),

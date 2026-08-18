@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { z } from "zod";
-import { DatabasePathField, LogLevelField, TelegramServiceUrlField } from "./shared-fields.js";
+import { DatabasePathField, DownloadStagingDirectoryField, LogLevelField, TelegramServiceUrlField } from "./shared-fields.js";
 
 const rawSchema = z.object({
   APP_HOST: z.string().default("0.0.0.0"),
@@ -18,6 +18,17 @@ const rawSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  // Optional: unset (or blank, the natural way to represent "unset" in a .env file) serves
+  // the Torznab endpoint unauthenticated, for operators who only expose `app` on a trusted
+  // internal network. A plain z.string().min(1).optional() would only treat a genuinely
+  // absent var as unset and throw on TORZNAB_API_KEY= (an empty string), so blank is folded
+  // into undefined first.
+  TORZNAB_API_KEY: z
+    .string()
+    .optional()
+    .transform((value) => (value && value.length > 0 ? value : undefined)),
+  TORZNAB_SERIES_MATCH_THRESHOLD: z.coerce.number().min(0).max(1).default(0.85),
+  DOWNLOAD_STAGING_DIRECTORY: DownloadStagingDirectoryField,
   LOG_LEVEL: LogLevelField,
 });
 
@@ -30,6 +41,9 @@ export interface AppConfig {
   adminPasswordHash: string;
   sessionSecret: string;
   cookieSecure: boolean;
+  torznabApiKey: string | null;
+  torznabSeriesMatchThreshold: number;
+  downloadStagingDirectory: string;
   logLevel: "debug" | "info" | "warn" | "error";
 }
 
@@ -45,6 +59,9 @@ export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     adminPasswordHash: parsed.APP_ADMIN_PASSWORD_HASH,
     sessionSecret: parsed.APP_SESSION_SECRET,
     cookieSecure: parsed.APP_COOKIE_SECURE,
+    torznabApiKey: parsed.TORZNAB_API_KEY ?? null,
+    torznabSeriesMatchThreshold: parsed.TORZNAB_SERIES_MATCH_THRESHOLD,
+    downloadStagingDirectory: parsed.DOWNLOAD_STAGING_DIRECTORY,
     logLevel: parsed.LOG_LEVEL,
   };
 }
