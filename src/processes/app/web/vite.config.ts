@@ -12,7 +12,7 @@ export default defineConfig({
   root: __dirname,
   plugins: [react()],
   build: {
-    outDir: path.join(__dirname, "dist"),
+    outDir: path.join(__dirname, "..", "..", "..", "..", "dist", "processes", "app", "web", "dist"),
     emptyOutDir: true,
   },
   server: {
