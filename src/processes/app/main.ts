@@ -101,9 +101,15 @@ async function main(): Promise<void> {
     }
   });
 
+  // Registered before `/api` so its `/api/v2/*` routes are matched here first — appApi's own
+  // router applies `requireAuth` unconditionally to everything under `/api`, which would
+  // otherwise intercept these requests with a 401 before they ever reached this mount. Mounted
+  // at root, not under a path prefix, because real qBittorrent's Web API has no configurable
+  // base path and Sonarr's qBittorrent download-client type has no URL Base field to set one —
+  // it always dials `/api/v2/...` directly off the configured host/port.
+  app.use(qbittorrentServer);
   app.use("/api", appApi);
   app.use("/torznab", torznabServer);
-  app.use("/qbittorrent", qbittorrentServer);
   app.use(express.static(WEB_DIST_DIR));
   // Passing `root` (rather than a bare absolute path) keeps `send`'s dotfiles check scoped to
   // the request-relative path, matching express.static above — a bare absolute path would run

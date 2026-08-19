@@ -185,9 +185,9 @@ In Sonarr: `Settings > Download Clients > Add > qBittorrent`.
 - Host: `<host>`, reachable from Sonarr (`APP_HOST` in `.env` controls what
   `app` binds to, not what Sonarr dials).
 - Port: your configured `APP_PORT` (default `4000`).
-- URL Base: `/qbittorrent` — matching how `app/main.ts` mounts the
-  qBittorrent-compatible server at `/qbittorrent` (which itself serves its
-  routes under `/api/v2`, where Sonarr expects them).
+- No URL Base field: Sonarr's qBittorrent client type doesn't have one — it
+  always dials `/api/v2/...` directly off Host/Port, so `app/main.ts` mounts
+  the qBittorrent-compatible server at the app's root to match.
 - Username/Password: leave blank. TeleSift's auth/login endpoint always
   succeeds; real Prowlarr/Sonarr API-key authentication for this endpoint is
   a known unresolved item, not something to work around here.
