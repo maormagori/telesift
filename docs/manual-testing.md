@@ -77,6 +77,11 @@ Prompts for a password twice and prints a `scrypt$<salt>$<hash>` string. Put
 it in `.env` as `APP_ADMIN_PASSWORD_HASH`, along with `APP_ADMIN_USERNAME` and
 a random `APP_SESSION_SECRET`. Never put a plaintext password in `.env`.
 
+Running under `docker compose` instead of `npm run dev:app`? Double every
+literal `$` as `$$` in the hash (`scrypt$$<salt>$$<hash>`) — Compose
+interpolates `env_file` content, so a single `$` is read as the start of a
+variable reference and silently dropped.
+
 ### 2. Start the app
 
 ```
