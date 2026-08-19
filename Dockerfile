@@ -18,7 +18,7 @@ WORKDIR /app
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY package.json ./
-COPY docker/entrypoint.sh docker/healthcheck.sh ./docker/
+COPY docker/entrypoint.sh docker/healthcheck.sh docker/healthcheck-worker.mjs ./docker/
 RUN chmod +x docker/entrypoint.sh docker/healthcheck.sh
 ENTRYPOINT ["docker/entrypoint.sh"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD ["docker/healthcheck.sh"]

@@ -9,6 +9,7 @@ import { createSyncChannelUseCase } from "../../modules/ingestion/application/sy
 import { loadIngestionWorkerConfig } from "../../platform/config/ingestion-worker-env.js";
 import { createLogger } from "../../platform/logging/logger.js";
 import { installShutdownHandler } from "../../platform/process-lifecycle/graceful-shutdown.js";
+import { waitForTelegramConnectionOrExit } from "../../platform/process-lifecycle/wait-for-telegram-connection.js";
 import { acquireHeartbeatLockOrExit, readHeartbeatLockFreshness } from "../../platform/singleton-lock/heartbeat-lock.js";
 import { createCancellableWait } from "../../platform/time/cancellable-sleep.js";
 
@@ -25,10 +26,13 @@ async function main(): Promise<void> {
 
   const lock = await acquireHeartbeatLockOrExit(config.lockPath, logger, "ingestion-worker");
 
+  const telegramAccess = createHttpTelegramAccessAdapter(config.telegramServiceUrl);
+  await waitForTelegramConnectionOrExit(telegramAccess, logger, "ingestion-worker");
+
   const kysely = createKyselyDb(openDatabase(config.databasePath));
   const channelRepo = createSqliteChannelRepository(kysely);
   const syncChannelUseCase = createSyncChannelUseCase({
-    telegramAccess: createHttpTelegramAccessAdapter(config.telegramServiceUrl),
+    telegramAccess,
     telegramChatRepo: createSqliteTelegramChatRepository(kysely),
     chatSyncStateRepo: createSqliteChatSyncStateRepository(kysely),
     messageRepo: createSqliteMessageRepository(kysely),

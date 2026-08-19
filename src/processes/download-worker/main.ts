@@ -11,6 +11,7 @@ import { createProcessDownloadClaim } from "../../modules/downloads/application/
 import { loadDownloadWorkerConfig } from "../../platform/config/download-worker-env.js";
 import { createLogger } from "../../platform/logging/logger.js";
 import { installShutdownHandler } from "../../platform/process-lifecycle/graceful-shutdown.js";
+import { waitForTelegramConnectionOrExit } from "../../platform/process-lifecycle/wait-for-telegram-connection.js";
 import { acquireHeartbeatLockOrExit, readHeartbeatLockFreshness } from "../../platform/singleton-lock/heartbeat-lock.js";
 import { createCancellableWait } from "../../platform/time/cancellable-sleep.js";
 
@@ -35,6 +36,8 @@ async function main(): Promise<void> {
   const telegramAccess = createHttpTelegramAccessAdapter(config.telegramServiceUrl, {
     requestTimeoutMs: config.telegramRequestTimeoutMs,
   });
+  await waitForTelegramConnectionOrExit(telegramAccess, logger, "download-worker");
+
   const staging = createFsStagingAdapter(config.stagingDirectory);
 
   const processDownloadClaim = createProcessDownloadClaim({

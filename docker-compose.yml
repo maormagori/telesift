@@ -28,7 +28,7 @@ services:
     command: ["ingestion-worker"]
     env_file: .env
     environment:
-      TELEGRAM_SERVICE_URL: http://telegram-service:4001
+      TELEGRAM_SERVICE_URL: http://telegram-service:${TELEGRAM_SERVICE_PORT:-4001}
     volumes:
       - data:/app/data
     depends_on:
@@ -64,7 +64,7 @@ services:
     command: ["download-worker"]
     env_file: .env
     environment:
-      TELEGRAM_SERVICE_URL: http://telegram-service:4001
+      TELEGRAM_SERVICE_URL: http://telegram-service:${TELEGRAM_SERVICE_PORT:-4001}
     volumes:
       - data:/app/data
     depends_on:
@@ -84,11 +84,11 @@ services:
     command: ["app"]
     env_file: .env
     environment:
-      TELEGRAM_SERVICE_URL: http://telegram-service:4001
+      TELEGRAM_SERVICE_URL: http://telegram-service:${TELEGRAM_SERVICE_PORT:-4001}
     volumes:
       - data:/app/data
     ports:
-      - "4000:4000"
+      - "${APP_PORT:-4000}:${APP_PORT:-4000}"
     depends_on:
       migrate:
         condition: service_completed_successfully
