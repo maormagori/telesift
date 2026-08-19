@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Clock } from "../time/clock.js";
-import { acquireHeartbeatLock, LockHeldError } from "./heartbeat-lock.js";
+import { acquireHeartbeatLock, LockHeldError, readHeartbeatLockFreshness } from "./heartbeat-lock.js";
 
 function fakeClock(startAt: number): Clock & { advance(ms: number): void } {
   let current = startAt;
@@ -62,5 +62,28 @@ describe("heartbeat-lock", () => {
 
     const second = await acquireHeartbeatLock(lockPath, clock);
     await second.release();
+  });
+
+  it("readHeartbeatLockFreshness returns false when the lock file doesn't exist", async () => {
+    expect(await readHeartbeatLockFreshness(lockPath, fakeClock(0))).toBe(false);
+  });
+
+  it("readHeartbeatLockFreshness returns true immediately after acquiring the lock", async () => {
+    const clock = fakeClock(0);
+    const holder = await acquireHeartbeatLock(lockPath, clock);
+
+    expect(await readHeartbeatLockFreshness(lockPath, clock)).toBe(true);
+
+    await holder.release();
+  });
+
+  it("readHeartbeatLockFreshness returns false once the heartbeat goes stale", async () => {
+    const clock = fakeClock(0);
+    const holder = await acquireHeartbeatLock(lockPath, clock);
+
+    clock.advance(20_001);
+    expect(await readHeartbeatLockFreshness(lockPath, clock)).toBe(false);
+
+    await holder.release();
   });
 });

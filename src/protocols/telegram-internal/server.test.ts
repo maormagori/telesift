@@ -23,6 +23,12 @@ describe("telegram-internal server", () => {
     await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
   });
 
+  it("GET /healthz returns 200", async () => {
+    const res = await fetch(`${baseUrl}/healthz`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: "ok" });
+  });
+
   it("GET /status returns the connection status", async () => {
     const res = await fetch(`${baseUrl}/status`);
     expect(res.status).toBe(200);
