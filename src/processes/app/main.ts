@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
+import { sql } from "kysely";
 import { createSqliteChannelRepository } from "../../adapters/sqlite/channel-repository.js";
 import { createSqliteChatSyncStateRepository } from "../../adapters/sqlite/chat-sync-state-repository.js";
 import { createKyselyDb, openDatabase } from "../../adapters/sqlite/connection.js";
@@ -90,6 +91,16 @@ async function main(): Promise<void> {
 
   const app = express();
   app.disable("x-powered-by");
+
+  app.get("/healthz", async (_req, res) => {
+    try {
+      await sql`select 1`.execute(kysely);
+      res.status(200).json({ status: "ok" });
+    } catch (error) {
+      res.status(503).json({ status: "error", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
   app.use("/api", appApi);
   app.use("/torznab", torznabServer);
   app.use("/qbittorrent", qbittorrentServer);

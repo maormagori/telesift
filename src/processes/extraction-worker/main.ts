@@ -19,11 +19,16 @@ import { createProcessMediaProcessingJob } from "../../modules/extraction/applic
 import { loadExtractionWorkerConfig } from "../../platform/config/extraction-worker-env.js";
 import { createLogger } from "../../platform/logging/logger.js";
 import { installShutdownHandler } from "../../platform/process-lifecycle/graceful-shutdown.js";
-import { acquireHeartbeatLockOrExit } from "../../platform/singleton-lock/heartbeat-lock.js";
+import { acquireHeartbeatLockOrExit, readHeartbeatLockFreshness } from "../../platform/singleton-lock/heartbeat-lock.js";
 import { createCancellableWait } from "../../platform/time/cancellable-sleep.js";
 
 async function main(): Promise<void> {
   const config = loadExtractionWorkerConfig();
+
+  if (process.argv.includes("--healthcheck")) {
+    process.exit((await readHeartbeatLockFreshness(config.lockPath)) ? 0 : 1);
+  }
+
   const logger = createLogger(config.logLevel);
 
   const lock = await acquireHeartbeatLockOrExit(config.lockPath, logger, "extraction-worker");

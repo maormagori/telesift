@@ -103,6 +103,12 @@ async function tryCreate(lockPath: string, record: LockRecord): Promise<boolean>
   }
 }
 
+export async function readHeartbeatLockFreshness(lockPath: string, clock: Clock = systemClock): Promise<boolean> {
+  const record = await readLockRecord(lockPath);
+  if (!record) return false;
+  return clock.now() - record.heartbeatAt < STALE_THRESHOLD_MS;
+}
+
 async function readLockRecord(lockPath: string): Promise<LockRecord | null> {
   try {
     const raw = await readFile(lockPath, "utf8");
