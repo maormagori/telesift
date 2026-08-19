@@ -118,3 +118,114 @@ proxying `/api` to it. Open the Vite dev server's printed URL in a browser.
   pause/resume/cancel/retry actually change its `desiredState`.
 - Log out. Confirm the session cookie is cleared and protected screens bounce
   back to the login page.
+
+## Sonarr (Torznab + qBittorrent-compatible)
+
+Requires a real or test Sonarr instance reachable from this host. Automated
+tests cover the Torznab and qBittorrent-compatible protocol handlers against
+fake dependencies (`src/protocols/torznab/server.test.ts`,
+`src/protocols/qbittorrent/server.test.ts`); this covers the parts that only
+make sense with a real Sonarr instance actually driving them.
+
+### 1. Prerequisites
+
+- `telegram-service` running against a real Telegram account — see the
+  `telegram-service` section above; nothing here repeats those steps.
+- `app` and all three workers (`ingestion-worker`, `extraction-worker`,
+  `download-worker`) running. Either the local-dev path:
+
+  ```
+  npm run dev:app
+  npm run dev:app-web
+  npm run dev:ingestion-worker
+  npm run dev:extraction-worker
+  npm run dev:download-worker
+  ```
+
+  or `docker compose up`, using `docker-compose.yml` at the repo root — if it
+  doesn't exist yet when you read this, it's landing as part of the same PR
+  as this section.
+- A real or test Sonarr instance reachable from this host.
+- `TORZNAB_API_KEY` set in `.env`, or explicitly left blank if TeleSift is
+  only reachable on a trusted internal network — see `.env.example`'s
+  comment on that var for both options.
+
+### 2. Add TeleSift as a Torznab indexer
+
+In Sonarr: `Settings > Indexers > Add > Torznab`.
+
+- URL: `http://<host>:<APP_PORT>/torznab/api` (substitute the actual host
+  and your configured `APP_PORT`, default `4000`).
+- API Key: the value of `TORZNAB_API_KEY` from `.env` (leave blank if you
+  left it unset there).
+- Confirm Sonarr's "Test" succeeds — it sends a `t=caps` request and should
+  report TV title/query, season, and episode search support.
+
+Alternatively, add TeleSift as a Torznab indexer in Prowlarr and sync it to
+Sonarr from there. Either way, Prowlarr only manages the indexer — it never
+downloads — so the qBittorrent-compatible download client in the next step
+is always configured directly in Sonarr, regardless of which indexer path
+you used.
+
+### 3. Add the qBittorrent-compatible download client
+
+In Sonarr: `Settings > Download Clients > Add > qBittorrent`.
+
+- Host: `<host>`, reachable from Sonarr (`APP_HOST` in `.env` controls what
+  `app` binds to, not what Sonarr dials).
+- Port: your configured `APP_PORT` (default `4000`).
+- URL Base: `/qbittorrent` — matching how `app/main.ts` mounts the
+  qBittorrent-compatible server at `/qbittorrent` (which itself serves its
+  routes under `/api/v2`, where Sonarr expects them).
+- Username/Password: leave blank. TeleSift's auth/login endpoint always
+  succeeds; real Prowlarr/Sonarr API-key authentication for this endpoint is
+  a known unresolved item, not something to work around here.
+- Confirm Sonarr's "Test" button succeeds — it calls the qBittorrent-compatible
+  auth/login endpoint under the hood.
+
+### 4. Happy path: search, grab, download, import
+
+This is the actual v1 MVP success criterion from `AGENTS.md`: "In Sonarr
+interactive search, the user selects an episode result whose source is
+Telegram; the service downloads the correct video, reports progress through
+the download-client API, and Sonarr imports it."
+
+- In Sonarr, run an interactive search for a series/episode you know exists
+  in your ingested Telegram channels.
+- Confirm a Telegram-sourced result appears, with a release title of the
+  form `Series.Title.SXXEYY.<resolution>.Telegram` (e.g.
+  `Fauda.S04E03.1080p.Telegram`).
+- Grab it.
+- Confirm Sonarr's download queue tracks progress through to completion —
+  Sonarr polls the qBittorrent-compatible `/torrents/info` endpoint under
+  the hood.
+- Confirm Sonarr successfully imports the completed file from
+  `DOWNLOAD_STAGING_DIRECTORY` into its managed library.
+
+### 5. Failed/unavailable release
+
+- Grab a release whose underlying Telegram message or media has since been
+  deleted (or deliberately pick one you know is gone).
+- Confirm the download surfaces as Sonarr's error/failed state — this
+  matches `toQbittorrentState`'s `"error"` mapping for a failed download.
+- The underlying media-unavailable handling (marking the asset unavailable,
+  failing the download with `media_unavailable`) is already covered by
+  `process-download-claim.integration.test.ts`'s media-unavailable case;
+  this step is just observing that end to end once, for real, not
+  re-deriving the logic.
+
+### 6. Paused/cancelled download
+
+- Pause an in-flight download from Sonarr's queue UI, or from TeleSift's own
+  `app` Downloads page (a real screen —
+  `src/processes/app/web/src/pages/Downloads.tsx` — with pause/resume/cancel
+  controls).
+- Confirm the download reports `pausedDL` and stops progressing.
+- Cancel/remove it. Confirm it disappears from Sonarr's queue and from
+  `/torrents/info`.
+
+Automated coverage of the full synthetic flow (ingestion through a staged
+completed download) lives in `src/e2e/sonarr-workflow.e2e.test.ts` and the
+individual protocol test files (`src/protocols/torznab/server.test.ts`,
+`src/protocols/qbittorrent/server.test.ts`) — this section only covers what
+genuinely requires a real Sonarr instance.
