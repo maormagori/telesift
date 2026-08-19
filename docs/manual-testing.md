@@ -147,10 +147,16 @@ make sense with a real Sonarr instance actually driving them.
   npm run dev:download-worker
   ```
 
-  or `docker compose up`, using `docker-compose.yml` at the repo root — if it
-  doesn't exist yet when you read this, it's landing as part of the same PR
-  as this section.
-- A real or test Sonarr instance reachable from this host.
+  or `docker compose up`, using `docker-compose.yml` at the repo root.
+- A real or test Sonarr instance reachable from this host. If you don't have
+  one handy, `docker-compose.sonarr-test.yml` brings up a throwaway Sonarr
+  on the same compose network as TeleSift — merge it in with
+  `docker compose -f docker-compose.yml -f docker-compose.sonarr-test.yml up --build -d`.
+  It reaches TeleSift at `http://app:4000` by service name and shares the
+  same staging volume at the same container path, so steps 2-3 below need no
+  Remote Path Mapping; just set an absolute `DOWNLOAD_STAGING_DIRECTORY`
+  (e.g. `/app/data/staging`) in `.env` first, since the default relative
+  value is a poor path to hand Sonarr.
 - `TORZNAB_API_KEY` set in `.env`, or explicitly left blank if TeleSift is
   only reachable on a trusted internal network — see `.env.example`'s
   comment on that var for both options.
