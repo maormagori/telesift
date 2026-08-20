@@ -46,6 +46,13 @@ export function createQbittorrentRoutes(deps: QbittorrentRoutesDeps): Router {
   router.use(express.urlencoded({ extended: true }));
   router.use(express.json());
 
+  // Not persisted in SQLite — categories are plain labels stored on each download row at
+  // add-time (see toTorrentInfo's `category` field below). This in-memory set exists only so
+  // Sonarr's create-then-verify handshake succeeds: it calls createCategory, then re-fetches
+  // categories to confirm the category now exists, and fails the whole download-client
+  // test/save with "Configuration of category failed" if it doesn't see it reflected back.
+  const knownCategories = new Set<string>();
+
   // Public — Sonarr/Radarr call this without a session to obtain the SID cookie.
   // Real Prowlarr/Sonarr API-key auth is an unresolved project-wide loose end
   // (not specific to this endpoint); always succeeding keeps the grab/track
@@ -67,16 +74,20 @@ export function createQbittorrentRoutes(deps: QbittorrentRoutesDeps): Router {
   });
 
   router.get("/torrents/categories", (_req: Request, res: Response) => {
-    // Categories aren't persisted separately in v1 — they're plain labels
-    // stored on each download row at add-time.
-    res.json({});
+    const categories: Record<string, { name: string; savePath: string }> = {};
+    for (const name of knownCategories) categories[name] = { name, savePath: deps.stagingDirectory };
+    res.json(categories);
   });
 
-  router.post("/torrents/createCategory", (_req: Request, res: Response) => {
+  router.post("/torrents/createCategory", (req: Request, res: Response) => {
+    const category = typeof req.body?.category === "string" ? req.body.category : null;
+    if (category) knownCategories.add(category);
     res.type("text/plain").send("");
   });
 
-  router.post("/torrents/setCategory", (_req: Request, res: Response) => {
+  router.post("/torrents/setCategory", (req: Request, res: Response) => {
+    const category = typeof req.body?.category === "string" ? req.body.category : null;
+    if (category) knownCategories.add(category);
     res.type("text/plain").send("");
   });
 
