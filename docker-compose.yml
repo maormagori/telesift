@@ -1,0 +1,105 @@
+services:
+  migrate:
+    build: .
+    command: ["migrate"]
+    env_file: .env
+    volumes:
+      - data:/app/data
+    restart: "no"
+
+  telegram-service:
+    build: .
+    command: ["telegram-service"]
+    env_file: .env
+    volumes:
+      - data:/app/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "docker/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  ingestion-worker:
+    build: .
+    command: ["ingestion-worker"]
+    env_file: .env
+    environment:
+      TELEGRAM_SERVICE_URL: http://telegram-service:${TELEGRAM_SERVICE_PORT:-4001}
+    volumes:
+      - data:/app/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      telegram-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "docker/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  extraction-worker:
+    build: .
+    command: ["extraction-worker"]
+    env_file: .env
+    volumes:
+      - data:/app/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "docker/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  download-worker:
+    build: .
+    command: ["download-worker"]
+    env_file: .env
+    environment:
+      TELEGRAM_SERVICE_URL: http://telegram-service:${TELEGRAM_SERVICE_PORT:-4001}
+    volumes:
+      - data:/app/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      telegram-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "docker/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  app:
+    build: .
+    command: ["app"]
+    env_file: .env
+    environment:
+      TELEGRAM_SERVICE_URL: http://telegram-service:${TELEGRAM_SERVICE_PORT:-4001}
+    volumes:
+      - data:/app/data
+    ports:
+      - "${APP_PORT:-4000}:${APP_PORT:-4000}"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      telegram-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "docker/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  data: {}

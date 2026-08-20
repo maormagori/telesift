@@ -1,0 +1,8 @@
+node_modules
+dist
+data/
+.git
+coverage
+*.sqlite3*
+.env*
+src/processes/app/web/dist

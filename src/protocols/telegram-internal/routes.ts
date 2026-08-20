@@ -6,6 +6,10 @@ import { isTelegramAccessNotFoundError, type TelegramAccessUseCases } from "../.
 export function createTelegramInternalRoutes(useCases: TelegramAccessUseCases): Router {
   const router = Router();
 
+  router.get("/healthz", (_req: Request, res: Response) => {
+    res.status(200).json({ status: "ok" });
+  });
+
   router.get("/status", async (_req: Request, res: Response) => {
     res.json(await useCases.getConnectionStatus());
   });

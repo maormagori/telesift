@@ -115,6 +115,20 @@ describe("qbittorrent server", () => {
     expect(body).toEqual({ save_path: "/staging", temp_path: "/staging", dht: false });
   });
 
+  it("regression: a created category is reflected back by GET /torrents/categories (Sonarr's create-then-verify handshake)", async () => {
+    expect(await (await fetch(`${baseUrl}/torrents/categories`)).json()).toEqual({});
+
+    const createRes = await fetch(`${baseUrl}/torrents/createCategory`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ category: "tv-sonarr" }),
+    });
+    expect(createRes.status).toBe(200);
+
+    const categories = await (await fetch(`${baseUrl}/torrents/categories`)).json();
+    expect(categories).toEqual({ "tv-sonarr": { name: "tv-sonarr", savePath: "/staging" } });
+  });
+
   it("POST /torrents/add grabs a release and GET /torrents/info reports it as downloading", async () => {
     const releaseId = seedRelease(db, 1, "Fauda.S04E03.1080p.Telegram");
     const addRes = await addTorrent(baseUrl, { urls: releaseIdToMagnetUri(releaseId) });

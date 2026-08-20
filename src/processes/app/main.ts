@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
+import { sql } from "kysely";
 import { createSqliteChannelRepository } from "../../adapters/sqlite/channel-repository.js";
 import { createSqliteChatSyncStateRepository } from "../../adapters/sqlite/chat-sync-state-repository.js";
 import { createKyselyDb, openDatabase } from "../../adapters/sqlite/connection.js";
@@ -90,9 +91,26 @@ async function main(): Promise<void> {
 
   const app = express();
   app.disable("x-powered-by");
+
+  app.get("/healthz", async (_req, res) => {
+    try {
+      await sql`select 1`.execute(kysely);
+      res.status(200).json({ status: "ok" });
+    } catch (error) {
+      res.status(503).json({ status: "error", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  // Registered before `/api` so its `/api/v2/*` routes are matched here first — appApi's own
+  // router applies `requireAuth` unconditionally to everything under `/api`, which would
+  // otherwise intercept these requests with a 401 before they ever reached this mount. Mounted
+  // at root, not under a path prefix, because real qBittorrent's Web API has no configurable
+  // base path — matching that means Sonarr's qBittorrent client works with just Host/Port and
+  // no operator ever has to find Sonarr's URL Base field (it exists, but sits behind an
+  // easy-to-miss "Advanced Settings" toggle in the download-client form).
+  app.use(qbittorrentServer);
   app.use("/api", appApi);
   app.use("/torznab", torznabServer);
-  app.use("/qbittorrent", qbittorrentServer);
   app.use(express.static(WEB_DIST_DIR));
   // Passing `root` (rather than a bare absolute path) keeps `send`'s dotfiles check scoped to
   // the request-relative path, matching express.static above — a bare absolute path would run

@@ -1,0 +1,36 @@
+# Optional local Sonarr instance for manually exercising the acceptance scenarios
+# in docs/manual-testing.md's "Sonarr" section, without needing a separately
+# deployed *arr stack. Not part of the general-purpose deployment in
+# docker-compose.yml — merge it in explicitly when you want it:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.sonarr-test.yml up --build -d
+#
+# Sonarr reaches TeleSift over the compose network by service name (http://app:4000),
+# and shares the same `data` volume at the same container path TeleSift's own services
+# use, so the qBittorrent-compatible API's reported save_path/content_path already
+# matches what Sonarr sees — no Remote Path Mapping needed. Set an absolute
+# DOWNLOAD_STAGING_DIRECTORY (e.g. /app/data/staging) in .env first; the default
+# relative value is a poor path to hand Sonarr.
+services:
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    environment:
+      # Root, purely to avoid permission mismatches against files download-worker
+      # writes as root in the shared volume. Fine for a throwaway test instance;
+      # do not run a real Sonarr deployment this way.
+      - PUID=0
+      - PGID=0
+      - TZ=Etc/UTC
+    volumes:
+      - sonarr-config:/config
+      - data:/app/data
+      - sonarr-tv:/tv
+    ports:
+      - "8989:8989"
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  sonarr-config: {}
+  sonarr-tv: {}
