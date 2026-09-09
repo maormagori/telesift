@@ -6,7 +6,7 @@ TeleSift will be renamed to **Sift**. Until that separate rename is complete, cu
 
 ## Vision
 
-Sift should let people use media they are authorized to access in messaging channels through the media clients they already use.
+Sift should let people use video files they are authorized to access in messaging channels through the media clients they already use. The current product recognizes single TV episodes; movie recognition, search, and delivery are planned for the future.
 
 The self-hosted edition is for technically capable users who run a home server and manage their own source accounts, channels, storage, and media clients. The intended experience is:
 

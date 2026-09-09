@@ -1,6 +1,6 @@
 # TeleSift
 
-TeleSift is a self-hosted service that turns video shared in Telegram chats into reviewed, searchable releases for media clients.
+TeleSift is a self-hosted service that turns video files shared in authorized Telegram chats into reviewed, searchable TV episode releases for media clients. TV episodes are the current focus; movie support is planned for the future.
 
 It signs in through a dedicated Telegram user account, indexes channels already visible to that account, extracts TV episode metadata from message context, and exposes approved releases through Torznab and a qBittorrent-compatible download API. Sonarr can search those releases, ask TeleSift to fetch the selected Telegram file, track progress, and import it from a staging directory.
 

@@ -1,6 +1,6 @@
 # Roadmap
 
-TeleSift is becoming **Sift**: a service that turns authorized media from messaging channels into reviewed releases consumable through Sonarr and Stremio.
+TeleSift is becoming **Sift**: a service that turns authorized video files from messaging channels into reviewed releases consumable through media clients. It handles single TV episodes today; movies are committed future direction.
 
 This roadmap describes outcomes, not dates. It is intentionally not a copy of the issue backlog. GitHub Issues hold scoped work and current priority; this document explains why that work matters and where the product is going.
 
@@ -67,7 +67,7 @@ Sonarr remains the first complete consumer. Sift should finish title/identity co
 
 Stremio is committed product direction, but its integration still needs design. That work must decide which addon resources Sift exposes, how identifiers map to releases, whether playback streams from the source or from staged storage, and what seeking, ranges, caching, concurrency, and authentication require.
 
-Movie and Radarr support may follow once the TV model is reliable. It must introduce movie identity, release year, categories, and review rules without weakening the episode path.
+Movie support will follow once the TV model is reliable. It must introduce movie identity, release year, categories, and review rules without weakening the episode path. Radarr is the likely first movie client, but its exact integration still needs design.
 
 Sift's UI remains the place to configure sources, review uncertain data, correct the catalog, simulate searches, and diagnose failures. Sonarr and Stremio remain the primary discovery and consumption surfaces.
 
