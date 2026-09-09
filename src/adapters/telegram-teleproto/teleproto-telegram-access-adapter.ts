@@ -19,7 +19,7 @@ export function createTeleprotoTelegramAccessAdapter(credentials: TelegramCreden
     connectionRetries: 5,
   });
 
-  // Login is out of scope for v1 (AGENTS.md): connect() only resumes the
+  // Login is out of the current release (docs/product.md): connect() only resumes the
   // operator-provisioned session, it never prompts for phone/code/password.
   let connecting: Promise<boolean> | null = null;
   async function ensureConnected(): Promise<void> {

@@ -24,7 +24,7 @@ export interface BuildContextGroupResult {
 }
 
 /**
- * Candidate context, per AGENTS.md: reply target + media-group siblings + a fixed window of
+ * Candidate context, per docs/product.md: reply target + media-group siblings + a fixed window of
  * preceding messages. Only an open media group defers readiness; a self-contained video with no
  * reply/media-group link is ready immediately, and preceding messages never gate readiness.
  */

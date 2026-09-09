@@ -136,7 +136,7 @@ describe("v1 Sonarr workflow (e2e, fully synthetic)", () => {
   it("ingests through telegram-service, extracts and approves a release, and grabs+completes a download through Torznab/qBittorrent", async () => {
     // Every non-telegram-service role reaches Telegram through this same HTTP adapter,
     // pointed at the fake telegram-internal server started above — matching
-    // AGENTS.md's e2e boundary ("through telegram-service").
+    // docs/architecture.md's e2e boundary ("through telegram-service").
     const httpTelegramAccess = createHttpTelegramAccessAdapter(fakeTelegramBaseUrl);
 
     const telegramChatRepo = createSqliteTelegramChatRepository(kysely);

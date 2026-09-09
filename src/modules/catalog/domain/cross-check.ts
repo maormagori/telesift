@@ -18,7 +18,7 @@ const RESOLUTION_HEIGHTS: Record<string, number> = {
 const RESOLUTION_TOLERANCE = 0.15;
 
 /**
- * Mechanically-checkable claims per AGENTS.md's extraction-pipeline step 5: the deterministic
+ * Mechanically-checkable claims per docs/product.md: the deterministic
  * pre-pass and the LLM should agree on season/episode when both found one, and a claimed
  * resolution should roughly match the video's actual height when both are known.
  */

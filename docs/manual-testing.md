@@ -3,6 +3,8 @@
 Automated tests never touch real Telegram (see each process's test files). This
 document covers the manual steps that do, using real credentials.
 
+See [Testing](testing.md) for the automated test layers and required commands.
+
 ## telegram-service
 
 Requires a real Telegram account. Nothing here is automatable in a public repo.
@@ -191,17 +193,17 @@ In Sonarr: `Settings > Download Clients > Add > qBittorrent`.
   configurable base path, so Host/Port alone is enough — no need to find
   that field at all.
 - Username/Password: leave blank. TeleSift's auth/login endpoint always
-  succeeds; real Prowlarr/Sonarr API-key authentication for this endpoint is
-  a known unresolved item, not something to work around here.
+  succeeds. Authentication for this compatibility endpoint is not implemented
+  in the current pre-alpha.
 - Confirm Sonarr's "Test" button succeeds — it calls the qBittorrent-compatible
   auth/login endpoint under the hood.
 
 ### 4. Happy path: search, grab, download, import
 
-This is the actual v1 MVP success criterion from `AGENTS.md`: "In Sonarr
-interactive search, the user selects an episode result whose source is
-Telegram; the service downloads the correct video, reports progress through
-the download-client API, and Sonarr imports it."
+This exercises the [current release goal](product.md#current-goal): in Sonarr
+interactive search, a user selects a TV episode sourced from
+Telegram; TeleSift downloads the correct video, reports progress through its
+download-client API, and Sonarr imports it.
 
 - In Sonarr, run an interactive search for a series/episode you know exists
   in your ingested Telegram channels.

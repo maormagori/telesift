@@ -9,8 +9,8 @@ export interface DecideInitialReviewStateInput {
 }
 
 /**
- * The LLM's `recommendedState` is advisory input, not the decision itself (AGENTS.md: "Do not
- * let the LLM mark its own result verified"). A release only auto-enters `approved` when every
+ * The LLM's `recommendedState` is advisory input, not the decision itself (docs/product.md: the
+ * model cannot verify its own answer). A release only auto-enters `approved` when every
  * independently-checkable signal agrees; anything uncertain lands in `pending_review`.
  */
 export function decideInitialReviewState(input: DecideInitialReviewStateInput): ReleaseReviewState {

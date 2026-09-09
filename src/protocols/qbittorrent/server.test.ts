@@ -154,7 +154,7 @@ describe("qbittorrent server", () => {
   });
 
   it("paused='true' records a pause request for the download-worker to reconcile", async () => {
-    // The protocol layer only ever writes desiredState (AGENTS.md: only the
+    // The protocol layer only ever writes desiredState (docs/architecture.md: only the
     // worker changes observedState) — so /torrents/info still reports
     // "downloading" until a download-worker claims and reconciles the
     // request. That reconciliation itself is covered by

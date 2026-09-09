@@ -3,7 +3,7 @@ import type { ContextGroupMember } from "./context-group.js";
 
 /**
  * Keyed by member content fingerprint (not just message identity) so an edit to any member
- * message recomputes the fingerprint and schedules another extraction, per AGENTS.md's
+ * message recomputes the fingerprint and schedules another extraction, per the product contract's
  * "When relevant messages change, recompute the context input fingerprint" rule.
  */
 export function computeContextInputFingerprint(
