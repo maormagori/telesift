@@ -1,7 +1,5 @@
 import type { MaterializeReleaseResult } from "../../catalog/application/materialize-release.js";
 import type { Release } from "../../catalog/domain/release.js";
-import type { SeriesAliasRepository } from "../../catalog/ports/series-alias-repository.js";
-import type { SeriesRepository } from "../../catalog/ports/series-repository.js";
 import type { BuildOrRefreshContextGroupResult } from "../../context/application/build-or-refresh-context-group.js";
 import type { MediaAssetRepository } from "../../ingestion/ports/media-asset-repository.js";
 import type { MessageRepository } from "../../ingestion/ports/message-repository.js";
@@ -10,9 +8,8 @@ import { deterministicParse } from "../domain/deterministic-parse.js";
 import { extractionResultSchema, type ExtractionResult } from "../domain/extraction-result-schema.js";
 import type { ExtractionRun, ExtractionVersions } from "../domain/extraction-run.js";
 import type { ExtractionRunRepository } from "../ports/extraction-run-repository.js";
-import type { LlmContextMessage, LlmExtractor, LlmSeriesCandidate } from "../ports/llm-extractor.js";
+import type { LlmContextMessage, LlmExtractor } from "../ports/llm-extractor.js";
 
-const KNOWN_SERIES_CANDIDATE_LIMIT = 50;
 const LLM_VALIDATION_ATTEMPTS = 2;
 
 export interface ProcessMediaProcessingJobDeps {
@@ -22,16 +19,18 @@ export interface ProcessMediaProcessingJobDeps {
   buildOrRefreshContextGroup: (mediaAssetId: number, now: number) => Promise<BuildOrRefreshContextGroupResult>;
   extractionRunRepo: ExtractionRunRepository;
   llmExtractor: LlmExtractor;
-  seriesRepo: SeriesRepository;
-  seriesAliasRepo: SeriesAliasRepository;
   materializeRelease: (input: {
     mediaAssetId: number;
     extractionRunId: number;
     extraction: ExtractionResult;
     fileName: string | null;
+    contextTexts: (string | null)[];
     assetHeight: number | null;
     deterministicSeason: number | null;
     deterministicEpisode: number | null;
+    deterministicResolution: string | null;
+    deterministicSource: string | null;
+    deterministicCodec: string | null;
     now: number;
   }) => Promise<MaterializeReleaseResult>;
   versions: ExtractionVersions;
@@ -62,33 +61,22 @@ export function createProcessMediaProcessingJob(deps: ProcessMediaProcessingJobD
       ...deps.versions,
     });
 
+    // Needed on both paths: the LLM input when there is no cached run, and the grounding check
+    // whenever a release is materialized.
+    const memberMessages = await Promise.all(contextGroup.members.map((member) => deps.messageRepo.findById(member.messageId)));
+    const contextMessages: LlmContextMessage[] = contextGroup.members.map((member, index) => ({
+      messageId: member.messageId,
+      role: member.role,
+      relativeOrder: member.relativeOrder,
+      text: memberMessages[index]?.text ?? null,
+    }));
+
     let extractionRun: ExtractionRun;
     let llmCalled = false;
 
     if (existingRun) {
       extractionRun = existingRun;
     } else {
-      const memberMessages = await Promise.all(contextGroup.members.map((member) => deps.messageRepo.findById(member.messageId)));
-      const contextMessages: LlmContextMessage[] = contextGroup.members.map((member, index) => ({
-        messageId: member.messageId,
-        role: member.role,
-        relativeOrder: member.relativeOrder,
-        text: memberMessages[index]?.text ?? null,
-      }));
-
-      const aliases = await deps.seriesAliasRepo.listAll();
-      const seriesIds = [...new Set(aliases.map((alias) => alias.seriesId))].slice(0, KNOWN_SERIES_CANDIDATE_LIMIT);
-      const knownSeriesCandidates: LlmSeriesCandidate[] = [];
-      for (const seriesId of seriesIds) {
-        const series = await deps.seriesRepo.findById(seriesId);
-        if (!series) continue;
-        knownSeriesCandidates.push({
-          seriesId,
-          canonicalTitle: series.canonicalTitle,
-          aliases: aliases.filter((alias) => alias.seriesId === seriesId).map((alias) => alias.aliasOriginal),
-        });
-      }
-
       const llmInput = {
         channelTitle: chat?.title ?? targetMessage.chatId,
         channelUsername: chat?.username ?? null,
@@ -100,8 +88,11 @@ export function createProcessMediaProcessingJob(deps: ProcessMediaProcessingJobD
         width: mediaAsset.width,
         height: mediaAsset.height,
         contextMessages,
-        deterministicHints,
-        knownSeriesCandidates,
+        deterministicHints: {
+          season: deterministicHints.season,
+          episode: deterministicHints.episode,
+          titleCandidate: deterministicHints.titleCandidate,
+        },
       };
 
       let parsed: ExtractionResult | null = null;
@@ -137,9 +128,13 @@ export function createProcessMediaProcessingJob(deps: ProcessMediaProcessingJobD
         extractionRunId: extractionRun.id,
         extraction,
         fileName: mediaAsset.fileName,
+        contextTexts: contextMessages.map((message) => message.text),
         assetHeight: mediaAsset.height,
         deterministicSeason: deterministicHints.season,
         deterministicEpisode: deterministicHints.episode,
+        deterministicResolution: deterministicHints.resolution,
+        deterministicSource: deterministicHints.source,
+        deterministicCodec: deterministicHints.codec,
         now,
       });
       release = materialized.release;

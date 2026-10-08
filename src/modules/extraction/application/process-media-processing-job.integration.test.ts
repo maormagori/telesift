@@ -60,8 +60,6 @@ function wireDeps(kysely: Kysely<DB>, responder: LlmFakeResponder) {
     buildOrRefreshContextGroup,
     extractionRunRepo,
     llmExtractor,
-    seriesRepo,
-    seriesAliasRepo,
     materializeRelease,
     versions: VERSIONS,
   });

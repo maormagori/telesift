@@ -7,8 +7,6 @@ function base(overrides: Partial<Parameters<typeof crossCheckExtraction>[0]> = {
     extractionEpisode: 3,
     deterministicSeason: 4,
     deterministicEpisode: 3,
-    extractionResolution: "1080p",
-    assetHeight: 1080,
     ...overrides,
   };
 }
@@ -30,15 +28,8 @@ describe("crossCheckExtraction", () => {
     expect(crossCheckExtraction(base({ deterministicEpisode: 5 }))).toBe(false);
   });
 
-  it("passes when resolution and asset height roughly agree within tolerance", () => {
-    expect(crossCheckExtraction(base({ extractionResolution: "1080p", assetHeight: 1072 }))).toBe(true);
-  });
-
-  it("fails when the claimed resolution is far from the asset's actual height", () => {
-    expect(crossCheckExtraction(base({ extractionResolution: "1080p", assetHeight: 480 }))).toBe(false);
-  });
-
-  it("passes when there is no asset height to check resolution against", () => {
-    expect(crossCheckExtraction(base({ extractionResolution: "1080p", assetHeight: null }))).toBe(true);
+  it("passes when only one side found a season", () => {
+    expect(crossCheckExtraction(base({ deterministicSeason: null }))).toBe(true);
+    expect(crossCheckExtraction(base({ extractionSeason: null }))).toBe(true);
   });
 });

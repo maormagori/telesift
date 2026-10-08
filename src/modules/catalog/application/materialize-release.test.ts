@@ -14,15 +14,9 @@ function baseExtraction(overrides: Partial<ExtractionResult> = {}): ExtractionRe
   return {
     isTvEpisode: true,
     seriesTitleObserved: "Fauda",
-    seriesTitleCanonical: "Fauda",
-    matchedSeriesId: null,
     season: 4,
     episode: 3,
-    resolution: "1080p",
-    source: null,
-    codec: null,
     language: "he",
-    evidence: {},
     ambiguities: [],
     recommendedState: "index",
     ...overrides,
@@ -135,9 +129,13 @@ const BASE_INPUT = {
   mediaAssetId: 1,
   extractionRunId: 1,
   fileName: "Fauda.S04E03.1080p.mkv",
+  contextTexts: ["Fauda S04E03"],
   assetHeight: 1080,
   deterministicSeason: 4,
   deterministicEpisode: 3,
+  deterministicResolution: "1080p",
+  deterministicSource: null,
+  deterministicCodec: null,
   now: 1000,
 };
 
@@ -282,13 +280,80 @@ describe("materializeRelease", () => {
       autoIndexEnabled: true,
     });
 
-    const result = await materializeRelease({ ...BASE_INPUT, extraction: baseExtraction({ resolution: "1080p" }) });
+    const result = await materializeRelease({ ...BASE_INPUT, extraction: baseExtraction() });
 
     expect(result.changed).toBe(false);
     expect(result.release).toEqual(verifiedRelease);
     expect(releaseRevisionRepo.revisions).toHaveLength(1);
     expect(releaseRevisionRepo.revisions[0]?.after.resolution).toBe("1080p");
     expect(releaseRevisionRepo.revisions[0]?.before.resolution).toBe("720p");
+  });
+
+  it("refuses to create a series when the observed title is absent from the source text", async () => {
+    const seriesRepo = createFakeSeriesRepo();
+    const seriesAliasRepo = createFakeSeriesAliasRepo();
+    const materializeRelease = createMaterializeRelease({
+      seriesRepo,
+      seriesAliasRepo,
+      releaseRepo: createFakeReleaseRepo(),
+      releaseRevisionRepo: createFakeReleaseRevisionRepo(),
+      seriesMatchThreshold: 0.8,
+      autoIndexEnabled: true,
+    });
+
+    // The real failure mode: a caption naming one show, an extraction naming another.
+    const result = await materializeRelease({
+      ...BASE_INPUT,
+      fileName: null,
+      contextTexts: ["Example Show Season 8 Episode 33"],
+      extraction: baseExtraction({ seriesTitleObserved: "A Different Show Entirely" }),
+    });
+
+    expect(result.release.seriesId).toBeNull();
+    expect(result.release.reviewState).toBe("pending_review");
+    expect(await seriesAliasRepo.listAll()).toHaveLength(0);
+  });
+
+  it("refuses to create a series from a title with no letters", async () => {
+    const seriesAliasRepo = createFakeSeriesAliasRepo();
+    const materializeRelease = createMaterializeRelease({
+      seriesRepo: createFakeSeriesRepo(),
+      seriesAliasRepo,
+      releaseRepo: createFakeReleaseRepo(),
+      releaseRevisionRepo: createFakeReleaseRevisionRepo(),
+      seriesMatchThreshold: 0.8,
+      autoIndexEnabled: true,
+    });
+
+    const result = await materializeRelease({
+      ...BASE_INPUT,
+      extraction: baseExtraction({ seriesTitleObserved: " (^)( *)?" }),
+    });
+
+    expect(result.release.seriesId).toBeNull();
+    expect(await seriesAliasRepo.listAll()).toHaveLength(0);
+  });
+
+  it("refuses to name a series after the filename when no title was observed", async () => {
+    const seriesAliasRepo = createFakeSeriesAliasRepo();
+    const materializeRelease = createMaterializeRelease({
+      seriesRepo: createFakeSeriesRepo(),
+      seriesAliasRepo,
+      releaseRepo: createFakeReleaseRepo(),
+      releaseRevisionRepo: createFakeReleaseRevisionRepo(),
+      seriesMatchThreshold: 0.8,
+      autoIndexEnabled: true,
+    });
+
+    const result = await materializeRelease({
+      ...BASE_INPUT,
+      fileName: "index.mp4",
+      contextTexts: [null],
+      extraction: baseExtraction({ seriesTitleObserved: null }),
+    });
+
+    expect(result.release.seriesId).toBeNull();
+    expect(await seriesAliasRepo.listAll()).toHaveLength(0);
   });
 
   it("sends to pending_review regardless of confidence when auto-index is disabled", async () => {

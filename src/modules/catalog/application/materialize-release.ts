@@ -5,6 +5,8 @@ import { decideInitialReviewState } from "../domain/decide-initial-review-state.
 import type { Release, ReleaseFields } from "../domain/release.js";
 import type { ReleaseFieldsSnapshot } from "../domain/release-revision.js";
 import { normalizeAliasText, resolveSeries } from "../domain/series-matching.js";
+import { checkSeriesTitleGrounding } from "../domain/series-title-grounding.js";
+import { resolutionFromHeight } from "../../extraction/domain/resolution-from-height.js";
 import type { ReleaseRepository } from "../ports/release-repository.js";
 import type { ReleaseRevisionRepository } from "../ports/release-revision-repository.js";
 import type { SeriesAliasRepository } from "../ports/series-alias-repository.js";
@@ -24,9 +26,13 @@ export interface MaterializeReleaseInput {
   extractionRunId: number;
   extraction: ExtractionResult;
   fileName: string | null;
+  contextTexts: (string | null)[];
   assetHeight: number | null;
   deterministicSeason: number | null;
   deterministicEpisode: number | null;
+  deterministicResolution: string | null;
+  deterministicSource: string | null;
+  deterministicCodec: string | null;
   now: number;
 }
 
@@ -53,37 +59,48 @@ function toSnapshot(fields: ReleaseFields): ReleaseFieldsSnapshot {
 
 export function createMaterializeRelease(deps: MaterializeReleaseDeps) {
   return async function materializeRelease(input: MaterializeReleaseInput): Promise<MaterializeReleaseResult> {
+    const grounding = checkSeriesTitleGrounding({
+      observedTitle: input.extraction.seriesTitleObserved,
+      contextTexts: input.contextTexts,
+      fileName: input.fileName,
+    });
+
     const aliases = await deps.seriesAliasRepo.listAll();
     const seriesMatch = resolveSeries(
-      input.extraction.seriesTitleObserved,
+      grounding.grounded ? grounding.title : null,
       input.fileName,
       aliases.map((alias) => ({ seriesId: alias.seriesId, aliasNormalized: alias.aliasNormalized })),
       deps.seriesMatchThreshold,
     );
 
     let seriesId = seriesMatch.seriesId;
-    let seriesTitle =
-      input.extraction.seriesTitleCanonical ?? input.extraction.seriesTitleObserved ?? input.fileName ?? "Unknown";
+    let seriesTitle = grounding.grounded ? grounding.title : "Unknown";
 
     if (seriesMatch.isNewCandidate) {
-      const canonicalTitle = input.extraction.seriesTitleCanonical ?? input.extraction.seriesTitleObserved ?? input.fileName ?? "Unknown";
-      const series = await deps.seriesRepo.create({
-        canonicalTitle,
-        originalLanguage: input.extraction.language,
-        now: input.now,
-      });
-      seriesId = series.id;
-      seriesTitle = series.canonicalTitle;
+      // A new series is a permanent identity record, so it is only created from a title we can
+      // point at in the source. Without one the release keeps `seriesId: null` and a human decides
+      // in review -- the alternative, inventing a series from an ungrounded title or from a
+      // filename like `index.mp4`, is what produced 19 duplicate series for 7 real shows.
+      if (grounding.grounded) {
+        const series = await deps.seriesRepo.create({
+          canonicalTitle: grounding.title,
+          originalLanguage: input.extraction.language,
+          now: input.now,
+        });
+        seriesId = series.id;
+        seriesTitle = series.canonicalTitle;
 
-      const aliasText = input.extraction.seriesTitleObserved ?? input.fileName ?? canonicalTitle;
-      await deps.seriesAliasRepo.create({
-        seriesId: series.id,
-        aliasNormalized: normalizeAliasText(aliasText),
-        aliasOriginal: aliasText,
-        language: input.extraction.language,
-        source: "extraction",
-        now: input.now,
-      });
+        await deps.seriesAliasRepo.create({
+          seriesId: series.id,
+          aliasNormalized: normalizeAliasText(grounding.title),
+          aliasOriginal: grounding.title,
+          language: input.extraction.language,
+          source: "extraction",
+          now: input.now,
+        });
+      } else {
+        seriesId = null;
+      }
     } else if (seriesId !== null) {
       const existingSeries = await deps.seriesRepo.findById(seriesId);
       if (existingSeries) seriesTitle = existingSeries.canonicalTitle;
@@ -94,13 +111,16 @@ export function createMaterializeRelease(deps: MaterializeReleaseDeps) {
       extractionEpisode: input.extraction.episode,
       deterministicSeason: input.deterministicSeason,
       deterministicEpisode: input.deterministicEpisode,
-      extractionResolution: input.extraction.resolution,
-      assetHeight: input.assetHeight,
     });
+
+    // Resolution, source and codec are mechanical facts about the file, no longer claimed by the
+    // model: a filename tag when there is one, otherwise the video's own height.
+    const resolution = input.deterministicResolution ?? resolutionFromHeight(input.assetHeight);
 
     const reviewState = decideInitialReviewState({
       extraction: input.extraction,
       isNewSeriesCandidate: seriesMatch.isNewCandidate,
+      seriesTitleGrounded: grounding.grounded,
       crossCheckOk,
       autoIndexEnabled: deps.autoIndexEnabled,
     });
@@ -110,15 +130,15 @@ export function createMaterializeRelease(deps: MaterializeReleaseDeps) {
       extractionRunId: input.extractionRunId,
       season: input.extraction.season,
       episode: input.extraction.episode,
-      resolution: input.extraction.resolution,
-      source: input.extraction.source,
-      codec: input.extraction.codec,
+      resolution,
+      source: input.deterministicSource,
+      codec: input.deterministicCodec,
       language: input.extraction.language,
       displayTitle: buildDisplayTitle({
         seriesTitle,
         season: input.extraction.season,
         episode: input.extraction.episode,
-        resolution: input.extraction.resolution,
+        resolution,
       }),
       reviewState,
       manuallyVerified: false,

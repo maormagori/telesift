@@ -6,15 +6,9 @@ function baseExtraction(overrides: Partial<ExtractionResult> = {}): ExtractionRe
   return {
     isTvEpisode: true,
     seriesTitleObserved: "Fauda",
-    seriesTitleCanonical: "Fauda",
-    matchedSeriesId: 1,
     season: 4,
     episode: 3,
-    resolution: "1080p",
-    source: null,
-    codec: null,
     language: "he",
-    evidence: {},
     ambiguities: [],
     recommendedState: "index",
     ...overrides,
@@ -24,6 +18,7 @@ function baseExtraction(overrides: Partial<ExtractionResult> = {}): ExtractionRe
 const CONFIDENT_INPUT = {
   extraction: baseExtraction(),
   isNewSeriesCandidate: false,
+  seriesTitleGrounded: true,
   crossCheckOk: true,
   autoIndexEnabled: true,
 };
@@ -40,11 +35,13 @@ describe("decideInitialReviewState", () => {
   });
 
   it("sends a recommendedState other than index to pending_review", () => {
-    for (const recommendedState of ["review", "unresolved", "needs_more_context"] as const) {
-      expect(
-        decideInitialReviewState({ ...CONFIDENT_INPUT, extraction: baseExtraction({ recommendedState }) }),
-      ).toBe("pending_review");
-    }
+    expect(
+      decideInitialReviewState({ ...CONFIDENT_INPUT, extraction: baseExtraction({ recommendedState: "review" }) }),
+    ).toBe("pending_review");
+  });
+
+  it("sends an ungrounded series title to pending_review", () => {
+    expect(decideInitialReviewState({ ...CONFIDENT_INPUT, seriesTitleGrounded: false })).toBe("pending_review");
   });
 
   it("sends any ambiguity to pending_review even when recommendedState is index", () => {
