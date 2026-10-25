@@ -35,6 +35,16 @@ export function createTelegramInternalRoutes(useCases: TelegramAccessUseCases): 
     res.json(body);
   });
 
+  router.get("/chats/:chatId/photo", async (req: Request, res: Response) => {
+    const { chatId } = ChatIdParamSchema.parse(req.params);
+    const photo = await useCases.getChatPhoto(chatId);
+    if (!photo) {
+      res.status(404).json({ error: "ChatPhotoNotFound" });
+      return;
+    }
+    res.type("image/jpeg").send(photo);
+  });
+
   router.get("/chats/:chatId/messages/:messageId", async (req: Request, res: Response) => {
     const { chatId, messageId } = MessageIdParamSchema.parse(req.params);
     res.json(await useCases.getMessage(chatId, messageId));

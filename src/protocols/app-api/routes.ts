@@ -139,6 +139,18 @@ export function createAppApiRoutes(deps: AppApiDeps): Router {
     res.json(await channelStatus.listVisibleChats());
   });
 
+  router.get("/telegram/chats/:chatId/photo", async (req: Request, res: Response) => {
+    const { chatId } = ChatIdParamSchema.parse(req.params);
+    const photo = await telegramAccess.getChatPhoto(chatId);
+    if (!photo) {
+      res.status(404).json({ error: "no_photo" });
+      return;
+    }
+    // Every row of the Channels screen requests one; without caching each page load re-downloads them from Telegram.
+    res.setHeader("Cache-Control", "private, max-age=86400");
+    res.type("image/jpeg").send(photo);
+  });
+
   router.get("/channels", async (_req: Request, res: Response) => {
     res.json(await channelStatus.listChannelsWithStatus());
   });

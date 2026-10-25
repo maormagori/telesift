@@ -54,5 +54,9 @@ export function createFakeTelegramAccessAdapter(chats: FakeChatFixture[] = FAKE_
       if (!asset) return null;
       return { descriptor: asset.descriptor, stream: Readable.from(asset.bytes) };
     },
+
+    async getChatPhoto(chatId) {
+      return findChat(chatId).photo ?? null;
+    },
   };
 }

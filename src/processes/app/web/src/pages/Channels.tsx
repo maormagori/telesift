@@ -1,7 +1,8 @@
 import { Plus, Radio, Search } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { api, type BackfillPolicy, type ChannelIdentifier, type ChannelWithStatus, type VisibleChat } from "../api/client";
 import { Button } from "../components/Button";
+import { ChatAvatar } from "../components/ChatAvatar";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DataTable, type DataTableColumn } from "../components/DataTable";
 import { EmptyState } from "../components/EmptyState";
@@ -20,17 +21,20 @@ function channelStatus(entry: ChannelWithStatus): { tone: StatusTone; label: str
   return { tone: "success", label: "Caught up", detail: `newest: ${state.newestSeenMessageId ?? "-"}` };
 }
 
+// Telegram returns chats most recently active first, so an empty search shows the likeliest picks.
+const SUGGESTED_CHAT_COUNT = 10;
+const MAX_SEARCH_MATCHES = 50;
+
 function matchesSearch(entry: VisibleChat, search: string): boolean {
   const needle = search.trim().toLowerCase();
   if (!needle) return true;
   return entry.chat.title.toLowerCase().includes(needle) || (entry.chat.username?.toLowerCase().includes(needle) ?? false);
 }
 
-/** What the add dialog is about to add: a typed id picked from the visible-chat list, or manually entered text. */
+/** What the add dialog is about to add: a typed id picked from the visible-chat list, or text typed into the search. */
 interface PendingAdd {
   identifier: ChannelIdentifier | string;
   label: string;
-  fromManualEntry: boolean;
 }
 
 export function Channels({ onOpenChat }: { onOpenChat: (chatId: string) => void }) {
@@ -39,7 +43,6 @@ export function Channels({ onOpenChat }: { onOpenChat: (chatId: string) => void 
   const [visibleChats, setVisibleChats] = useState<VisibleChat[] | null>(null);
   const [visibleChatsFailed, setVisibleChatsFailed] = useState(false);
   const [search, setSearch] = useState("");
-  const [identifier, setIdentifier] = useState("");
   const [pendingAdd, setPendingAdd] = useState<PendingAdd | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [pendingDisable, setPendingDisable] = useState<ChannelWithStatus | null>(null);
@@ -62,17 +65,12 @@ export function Channels({ onOpenChat }: { onOpenChat: (chatId: string) => void 
     void refreshVisibleChats();
   }, []);
 
-  function handleManualAdd(e: FormEvent): void {
-    e.preventDefault();
-    setPendingAdd({ identifier, label: identifier, fromManualEntry: true });
-  }
-
   async function confirmAdd(backfillPolicy: BackfillPolicy): Promise<void> {
     if (!pendingAdd) return;
     setSubmitting(true);
     try {
       const result = await api.addChannel(pendingAdd.identifier, backfillPolicy);
-      if (pendingAdd.fromManualEntry) setIdentifier("");
+      setSearch("");
       setPendingAdd(null);
       showToast(
         result.resolution.status === "resolved"
@@ -106,9 +104,12 @@ export function Channels({ onOpenChat }: { onOpenChat: (chatId: string) => void 
       sortValue: (entry) => entry.chat?.title ?? entry.channel.identifier.value,
       render: (entry) =>
         entry.chat ? (
-          <button type="button" className="channels-title-link" onClick={() => onOpenChat(entry.chat!.telegramId)}>
-            {entry.chat.title}
-          </button>
+          <div className="channels-chat-cell">
+            <ChatAvatar chatId={entry.chat.telegramId} title={entry.chat.title} />
+            <button type="button" className="channels-title-link" onClick={() => onOpenChat(entry.chat!.telegramId)}>
+              {entry.chat.title}
+            </button>
+          </div>
         ) : (
           <span className="mono text-sm">{entry.channel.identifier.value}</span>
         ),
@@ -155,6 +156,7 @@ export function Channels({ onOpenChat }: { onOpenChat: (chatId: string) => void 
       sortValue: (entry) => entry.chat.title.toLowerCase(),
       render: (entry) => (
         <div className="channels-chat-cell">
+          <ChatAvatar chatId={entry.chat.id} title={entry.chat.title} />
           <span className="channels-chat-title">{entry.chat.title}</span>
           {entry.chat.username && <span className="muted text-sm mono">@{entry.chat.username}</span>}
         </div>
@@ -174,12 +176,11 @@ export function Channels({ onOpenChat }: { onOpenChat: (chatId: string) => void 
           <StatusPill tone="success">Added</StatusPill>
         ) : (
           <Button
-            variant="secondary"
+            variant="primary"
             onClick={() =>
               setPendingAdd({
                 identifier: { type: "telegram_id", value: entry.chat.id },
                 label: entry.chat.title,
-                fromManualEntry: false,
               })
             }
           >
@@ -190,23 +191,22 @@ export function Channels({ onOpenChat }: { onOpenChat: (chatId: string) => void 
     },
   ];
 
-  const filteredChats = visibleChats?.filter((entry) => matchesSearch(entry, search)) ?? [];
+  const typedIdentifier = search.trim();
+  const matchingChats = visibleChats?.filter((entry) => matchesSearch(entry, search)) ?? [];
+  const shownChats = matchingChats.slice(0, typedIdentifier ? MAX_SEARCH_MATCHES : SUGGESTED_CHAT_COUNT);
+  const hiddenChatCount = matchingChats.length - shownChats.length;
+  // A chat missing from the visible list can still be added by its exact identifier.
+  const addTypedIdentifier = typedIdentifier ? (
+    <Button variant="primary" onClick={() => setPendingAdd({ identifier: typedIdentifier, label: typedIdentifier })}>
+      <Plus size={14} aria-hidden="true" />
+      Add “{typedIdentifier}” by username or ID
+    </Button>
+  ) : undefined;
 
   return (
     <div>
       <h2>Channels</h2>
-      <form className="channels-add-form" onSubmit={handleManualAdd}>
-        <input
-          placeholder="@username or numeric chat id"
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-        />
-        <Button type="submit" variant="primary" disabled={!identifier}>
-          <Plus size={14} aria-hidden="true" />
-          Add channel
-        </Button>
-      </form>
-
+      <h3>Your channels</h3>
       {channels === null ? (
         <div className="skeleton-stack">
           <Skeleton height="2.5rem" />
@@ -221,30 +221,33 @@ export function Channels({ onOpenChat }: { onOpenChat: (chatId: string) => void 
           emptyState={
             <EmptyState
               icon={<Radio size={28} />}
-              title="No channels configured yet"
-              description="Pick a chat below or enter an identifier above to start ingesting it."
+              title="No channels yet"
+              description="Pick a chat below to start ingesting it."
             />
           }
         />
       )}
 
       <section className="channels-picker">
-        <h3>Chats visible to this account</h3>
+        <h3>Add a channel</h3>
         <label className="channels-search">
           <Search size={14} aria-hidden="true" />
-          <span className="visually-hidden">Search chats by name</span>
+          <span className="visually-hidden">Search chats by name, or type a username or chat ID</span>
           <input
             type="search"
-            placeholder="Search by name or username"
+            placeholder="Search your chats, or type a @username or chat ID"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
 
         {visibleChatsFailed ? (
-          <p className="muted text-sm">
-            Could not load chats from telegram-service. You can still add a channel by its identifier above.
-          </p>
+          <div className="channels-load-failed">
+            <p className="muted text-sm">
+              Could not load chats from telegram-service. You can still type a channel's username or chat ID to add it.
+            </p>
+            {addTypedIdentifier}
+          </div>
         ) : visibleChats === null ? (
           <div className="skeleton-stack">
             <Skeleton height="2.5rem" />
@@ -254,20 +257,28 @@ export function Channels({ onOpenChat }: { onOpenChat: (chatId: string) => void 
           <div className="channels-picker-list">
             <DataTable
               columns={visibleChatColumns}
-              rows={filteredChats}
+              rows={shownChats}
               rowKey={(entry) => entry.chat.id}
               emptyState={
                 <EmptyState
                   icon={<Search size={28} />}
-                  title={visibleChats.length === 0 ? "No channels or groups visible" : "No chats match your search"}
+                  title={typedIdentifier ? `No chats match “${typedIdentifier}”` : "No channels or groups visible"}
                   description={
-                    visibleChats.length === 0
-                      ? "The connected Telegram account isn't a member of any channel or group yet."
-                      : undefined
+                    typedIdentifier
+                      ? "If it's a chat this account can see, you can add it by its exact username or chat ID."
+                      : "The connected Telegram account isn't a member of any channel or group yet."
                   }
+                  action={addTypedIdentifier}
                 />
               }
             />
+            {hiddenChatCount > 0 && (
+              <p className="muted text-sm channels-picker-more">
+                {typedIdentifier
+                  ? `Showing the first ${shownChats.length} of ${matchingChats.length} matches. Keep typing to narrow it down.`
+                  : `Showing your ${shownChats.length} most recently active chats. Search to find the other ${hiddenChatCount}.`}
+              </p>
+            )}
           </div>
         )}
       </section>

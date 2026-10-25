@@ -1,14 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TelegramCredentials } from "../../platform/config/env.js";
 
-const { getMessages, mockClient } = vi.hoisted(() => {
+const { getMessages, downloadProfilePhoto, mockClient } = vi.hoisted(() => {
   const getMessages = vi.fn();
+  const downloadProfilePhoto = vi.fn();
   return {
     getMessages,
+    downloadProfilePhoto,
     mockClient: {
       connected: true,
       connect: vi.fn().mockResolvedValue(true),
       getMessages,
+      downloadProfilePhoto,
     },
   };
 });
@@ -75,5 +78,27 @@ describe("createTeleprotoTelegramAccessAdapter getLatestMessageId", () => {
     const adapter = createTeleprotoTelegramAccessAdapter(CREDENTIALS);
 
     expect(await adapter.getLatestMessageId("channel-1")).toBeNull();
+  });
+});
+
+describe("createTeleprotoTelegramAccessAdapter getChatPhoto", () => {
+  beforeEach(() => {
+    downloadProfilePhoto.mockReset();
+  });
+
+  it("downloads the small profile photo", async () => {
+    const photo = Buffer.from("synthetic-photo");
+    downloadProfilePhoto.mockResolvedValue(photo);
+    const adapter = createTeleprotoTelegramAccessAdapter(CREDENTIALS);
+
+    expect(await adapter.getChatPhoto("channel-1")).toEqual(photo);
+    expect(downloadProfilePhoto).toHaveBeenCalledWith("channel-1", { isBig: false });
+  });
+
+  it("returns null when teleproto returns an empty buffer for a chat without a photo", async () => {
+    downloadProfilePhoto.mockResolvedValue(Buffer.alloc(0));
+    const adapter = createTeleprotoTelegramAccessAdapter(CREDENTIALS);
+
+    expect(await adapter.getChatPhoto("channel-1")).toBeNull();
   });
 });

@@ -118,6 +118,13 @@ export function createHttpTelegramAccessAdapter(
         stream: Readable.fromWeb(res.body as WebReadableStream<Uint8Array>),
       };
     },
+
+    async getChatPhoto(chatId): Promise<Buffer | null> {
+      const res = await get(`/chats/${encodeURIComponent(chatId)}/photo`);
+      if (res.status === 404) return resolveNotFound(res, chatId);
+      if (!res.ok) throw new Error(`telegram-service chat photo failed: ${res.status}`);
+      return Buffer.from(await res.arrayBuffer());
+    },
   };
 }
 

@@ -36,4 +36,6 @@ export interface TelegramAccessPort {
   getLatestMessageId(chatId: string): Promise<number | null>;
   getMessage(chatId: string, messageId: number): Promise<MessageSummary | null>;
   getMediaStream(chatId: string, messageId: number): Promise<MediaStream | null>;
+  /** The chat's small JPEG profile photo, or null when it has none. */
+  getChatPhoto(chatId: string): Promise<Buffer | null>;
 }

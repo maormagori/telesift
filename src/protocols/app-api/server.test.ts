@@ -296,6 +296,21 @@ describe("app-api server", () => {
     ]);
   });
 
+  it("GET /telegram/chats/:chatId/photo returns the chat's photo with a cache header", async () => {
+    const photo = Buffer.from("synthetic-photo");
+    await startServer([{ ...makeFixture("1001"), photo }, makeFixture("1002")]);
+    const cookie = await login();
+
+    const res = await fetch(`${baseUrl}/telegram/chats/1001/photo`, { headers: { Cookie: cookie } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/jpeg");
+    expect(res.headers.get("cache-control")).toBe("private, max-age=86400");
+    expect(Buffer.from(await res.arrayBuffer())).toEqual(photo);
+
+    const missing = await fetch(`${baseUrl}/telegram/chats/1002/photo`, { headers: { Cookie: cookie } });
+    expect(missing.status).toBe(404);
+  });
+
   it("GET /telegram/chats requires a session", async () => {
     await startServer();
     const res = await fetch(`${baseUrl}/telegram/chats`);

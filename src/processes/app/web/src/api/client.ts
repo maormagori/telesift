@@ -284,6 +284,8 @@ export const api = {
     return request<MessageWithMedia[]>(`/chats/${encodeURIComponent(chatId)}/messages${query ? `?${query}` : ""}`);
   },
 
+  chatPhotoUrl: (chatId: string) => `/api/telegram/chats/${encodeURIComponent(chatId)}/photo`,
+
   mediaUrl: (chatId: string, messageId: number) =>
     `/api/chats/${encodeURIComponent(chatId)}/messages/${messageId}/media`,
 

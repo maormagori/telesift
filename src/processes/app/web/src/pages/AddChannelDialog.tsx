@@ -65,7 +65,7 @@ export function AddChannelDialog({
               ? "Only messages posted from now on will be ingested."
               : invalid
                 ? "Enter a whole number greater than 0, or leave blank."
-                : "Counts back from the newest message. Leave blank for all history, or the server's default limit if one is configured."}
+                : "Counted back from the newest message. Blank means all history."}
           </span>
         </label>
       </div>

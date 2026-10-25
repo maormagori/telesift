@@ -118,5 +118,17 @@ export function createTeleprotoTelegramAccessAdapter(credentials: TelegramCreden
       const stream = Readable.from(client.iterDownload(message));
       return { descriptor, stream };
     },
+
+    async getChatPhoto(chatId) {
+      await ensureConnected();
+      try {
+        // teleproto returns an empty buffer, not undefined, for a chat without a photo.
+        const photo = await client.downloadProfilePhoto(chatId, { isBig: false });
+        return Buffer.isBuffer(photo) && photo.length > 0 ? photo : null;
+      } catch (error) {
+        if (isChatNotAccessible(error)) throw new ChatNotAccessibleError(chatId, { cause: error });
+        throw error;
+      }
+    },
   };
 }

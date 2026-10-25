@@ -9,6 +9,7 @@ export interface FakeChatFixture {
   chat: ChatSummary;
   messages: MessageSummary[];
   media: Record<number, FakeMediaAsset>;
+  photo?: Buffer;
 }
 
 const CHANNEL_1_MESSAGE_102_BYTES = Buffer.from("synthetic-fake-video-bytes-for-message-102");
@@ -20,6 +21,8 @@ const CHANNEL_1_MESSAGE_102_DESCRIPTOR: MediaDescriptor = {
   width: 1920,
   height: 1080,
 };
+
+export const CHANNEL_1_PHOTO_BYTES = Buffer.from("synthetic-fake-photo-bytes-for-channel-1");
 
 const HEBREW_CHANNEL: FakeChatFixture = {
   chat: {
@@ -54,6 +57,7 @@ const HEBREW_CHANNEL: FakeChatFixture = {
       bytes: CHANNEL_1_MESSAGE_102_BYTES,
     },
   },
+  photo: CHANNEL_1_PHOTO_BYTES,
 };
 
 const GROUP_2_MESSAGE_202_BYTES = Buffer.from("synthetic-fake-video-bytes-for-message-202");
