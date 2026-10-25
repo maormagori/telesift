@@ -114,6 +114,8 @@ sequenceDiagram
 
 Messages use `(chat_id, telegram_message_id)` as their source identity. An input fingerprint prevents unchanged overlap scans from producing duplicate effects. Per-chat state records the newest incrementally seen message, oldest backfilled message, backfill completion, recent scan time, and last error.
 
+Ingestion pages forward from a message-ID cursor. On a chat's first sync, the channel's backfill policy positions that cursor once: at the start of retained history, just below the newest N messages (using the chat's latest message ID from `telegram-service`), or at the latest message when backfill is disabled. Message IDs can have gaps, so N is an upper bound. Later syncs continue from the stored cursor and never re-apply the policy.
+
 Each current media asset has one context group. A group contains the target plus candidate evidence labelled `preceding`, `reply`, or `album_sibling`. The current builder does not yet model every planned signal described by the product rules.
 
 Media-processing jobs are transactionally claimed with a short lease. The worker commits the claim before external work, records attempts/errors, and allows an expired claim to be retried. Extraction runs are immutable and versioned by input, pipeline, prompt, and model.
@@ -178,7 +180,7 @@ The schema is migration-driven through Kysely and `better-sqlite3`. SQLite runs 
 
 ## Protocols
 
-- `telegram-internal` is deployment-private. It exposes connection status, chat/message reads, refetch, and media streaming rather than ingestion or download workflows.
+- `telegram-internal` is deployment-private. It exposes connection status, chat/message reads (including a chat's latest message ID), refetch, and media streaming rather than ingestion or download workflows.
 - Torznab advertises `search` and `tvsearch`, accepting title/query, season, episode, paging, and an optional API key.
 - The qBittorrent-compatible subset implements the calls Sonarr currently needs for login, version/preferences, categories, add, list/status, file properties, pause/resume, and delete.
 - `app-api` serves authenticated operator actions and read models for the React UI.

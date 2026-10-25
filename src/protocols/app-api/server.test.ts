@@ -111,15 +111,21 @@ describe("app-api server", () => {
     const releaseRevisionRepo = createSqliteReleaseRevisionRepository(kysely);
     seriesRepo = createSqliteSeriesRepository(kysely);
     downloadRepo = createSqliteDownloadRepository(kysely);
-    const telegramAccess = createTelegramAccessUseCases(createFakeTelegramAccessAdapter(fixtures));
-    const resolver = createChannelResolver({ telegramAccess: createFakeTelegramAccessAdapter(fixtures), telegramChatRepo });
+    const telegramAccessAdapter = createFakeTelegramAccessAdapter(fixtures);
+    const telegramAccess = createTelegramAccessUseCases(telegramAccessAdapter);
+    const resolver = createChannelResolver({ telegramAccess: telegramAccessAdapter, telegramChatRepo });
 
     const app = createAppApiServer(
       {
         appAuth: createAppAuthUseCases({ username: "operator", passwordHash: hashPassword(ADMIN_PASSWORD) }),
         telegramAccess,
         ingestion: createIngestionUseCases(channelRepo),
-        channelStatus: createChannelStatusUseCases({ channelRepo, chatSyncStateRepo, resolver }),
+        channelStatus: createChannelStatusUseCases({
+          channelRepo,
+          chatSyncStateRepo,
+          resolver,
+          telegramAccess: telegramAccessAdapter,
+        }),
         messageInspection: createMessageInspectionUseCases({ messageRepo, mediaAssetRepo }),
         seriesRepo,
         reviewQueue: createReviewQueueUseCases({ releaseRepo, releaseRevisionRepo, mediaAssetRepo, messageRepo, seriesRepo }),
@@ -220,6 +226,95 @@ describe("app-api server", () => {
     expect(res.status).toBe(201);
     const body = (await res.json()) as { resolution: unknown };
     expect(body.resolution).toEqual({ status: "unresolved" });
+  });
+
+  it("defaults a manually added channel to the default backfill policy", async () => {
+    await startServer([makeFixture("1001")]);
+    const cookie = await login();
+
+    const res = await fetch(`${baseUrl}/channels`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ identifier: "1001" }),
+    });
+    const body = (await res.json()) as { channel: { backfillPolicy: unknown } };
+    expect(body.channel.backfillPolicy).toEqual({ enabled: true, maxMessages: null });
+  });
+
+  it("adds a channel picked by typed identifier with its backfill policy", async () => {
+    await startServer([makeFixture("chat-picked")]);
+    const cookie = await login();
+
+    const res = await fetch(`${baseUrl}/channels`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({
+        identifier: { type: "telegram_id", value: "chat-picked" },
+        backfillPolicy: { enabled: true, maxMessages: 500 },
+      }),
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { channel: { identifier: unknown; backfillPolicy: unknown }; resolution: unknown };
+    expect(body.channel).toMatchObject({
+      identifier: { type: "telegram_id", value: "chat-picked" },
+      backfillPolicy: { enabled: true, maxMessages: 500 },
+    });
+    expect(body.resolution).toMatchObject({ status: "resolved" });
+  });
+
+  it("rejects a non-positive backfill message limit", async () => {
+    await startServer();
+    const cookie = await login();
+
+    const res = await fetch(`${baseUrl}/channels`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ identifier: "1001", backfillPolicy: { enabled: true, maxMessages: 0 } }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("GET /telegram/chats lists visible channels and groups, marking ones already added", async () => {
+    await startServer([
+      makeFixture("1001"),
+      { ...makeFixture("1002"), chat: { id: "1002", title: "Example Group", type: "group", username: null } },
+      { ...makeFixture("1003"), chat: { id: "1003", title: "Example Person", type: "user", username: null } },
+    ]);
+    const cookie = await login();
+    await fetch(`${baseUrl}/channels`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ identifier: "1001" }),
+    });
+
+    const res = await fetch(`${baseUrl}/telegram/chats`, { headers: { Cookie: cookie } });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Array<{ chat: { id: string }; channel: { id: number } | null }>;
+    expect(body.map((entry) => [entry.chat.id, entry.channel !== null])).toEqual([
+      ["1001", true],
+      ["1002", false],
+    ]);
+  });
+
+  it("GET /telegram/chats/:chatId/photo returns the chat's photo with a cache header", async () => {
+    const photo = Buffer.from("synthetic-photo");
+    await startServer([{ ...makeFixture("1001"), photo }, makeFixture("1002")]);
+    const cookie = await login();
+
+    const res = await fetch(`${baseUrl}/telegram/chats/1001/photo`, { headers: { Cookie: cookie } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/jpeg");
+    expect(res.headers.get("cache-control")).toBe("private, max-age=86400");
+    expect(Buffer.from(await res.arrayBuffer())).toEqual(photo);
+
+    const missing = await fetch(`${baseUrl}/telegram/chats/1002/photo`, { headers: { Cookie: cookie } });
+    expect(missing.status).toBe(404);
+  });
+
+  it("GET /telegram/chats requires a session", async () => {
+    await startServer();
+    const res = await fetch(`${baseUrl}/telegram/chats`);
+    expect(res.status).toBe(401);
   });
 
   it("lists channels with resolved status", async () => {

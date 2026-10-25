@@ -2,6 +2,7 @@ import type { Logger } from "../../../platform/logging/logger.js";
 import type { MessageSummary } from "../../telegram-access/ports/models.js";
 import type { TelegramAccessPort } from "../../telegram-access/ports/telegram-access-port.js";
 import { createChannelResolver } from "./channel-resolution.js";
+import { backfillStartCursor, resolveBackfillLimit } from "../domain/backfill-policy.js";
 import type { Channel } from "../domain/channel.js";
 import type { ChatSyncStateRepository } from "../ports/chat-sync-state-repository.js";
 import type { MessageRepository } from "../ports/message-repository.js";
@@ -12,6 +13,7 @@ const PORT_PAGE_LIMIT = 200;
 
 export interface SyncChannelConfig {
   pageSize: number;
+  /** Newest-N backfill limit for channels whose own policy sets no limit; null means all history. */
   backfillMaxMessages: number | null;
   rescanWindowSize: number;
   rescanIntervalMs: number;
@@ -50,10 +52,26 @@ export function createSyncChannelUseCase(deps: SyncChannelDeps): SyncChannelUseC
     }
   }
 
-  async function advancePage(chatId: string, now: number): Promise<void> {
+  /** Positions a chat's first forward walk so it backfills only the newest messages its channel's policy allows. */
+  async function seedBackfillCursor(channel: Channel, chatId: string, now: number): Promise<number> {
+    const limit = resolveBackfillLimit(channel.backfillPolicy, config.backfillMaxMessages);
+    if (limit === null) return 0;
+
+    const latestId = await telegramAccess.getLatestMessageId(chatId);
+    if (latestId === null) return 0;
+
+    const cursor = backfillStartCursor(latestId, limit);
+    await chatSyncStateRepo.advanceIncrementalCursor(chatId, cursor, now);
+    await chatSyncStateRepo.advanceBackfillCursor(chatId, cursor, now);
+    return cursor;
+  }
+
+  async function advancePage(channel: Channel, chatId: string, now: number): Promise<void> {
     const syncState = await chatSyncStateRepo.get(chatId);
-    const cursor = syncState?.newestSeenMessageId ?? 0;
-    if (config.backfillMaxMessages !== null && cursor >= config.backfillMaxMessages) return;
+    // No cursor and no completed backfill means no page has ever been fetched (an earlier
+    // attempt may have failed and only recorded an error), so this is still the first sync.
+    const isFirstSync = !syncState || (syncState.newestSeenMessageId === null && syncState.backfillCompletedAt === null);
+    const cursor = isFirstSync ? await seedBackfillCursor(channel, chatId, now) : (syncState.newestSeenMessageId ?? 0);
 
     const page = await telegramAccess.getMessages(chatId, { minId: cursor, limit: config.pageSize });
     await upsertPage(chatId, page, now);
@@ -65,9 +83,7 @@ export function createSyncChannelUseCase(deps: SyncChannelDeps): SyncChannelUseC
       await chatSyncStateRepo.advanceBackfillCursor(chatId, newestId, now);
     }
 
-    const caughtUp = page.length < config.pageSize;
-    const capReached = config.backfillMaxMessages !== null && newestId >= config.backfillMaxMessages;
-    if (caughtUp || capReached) {
+    if (page.length < config.pageSize) {
       await chatSyncStateRepo.markBackfillCompleted(chatId, now);
     }
   }
@@ -106,7 +122,7 @@ export function createSyncChannelUseCase(deps: SyncChannelDeps): SyncChannelUseC
           return;
         }
 
-        await advancePage(chat.telegramId, now);
+        await advancePage(channel, chat.telegramId, now);
         await rescanIfDue(chat.telegramId, now);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

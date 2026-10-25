@@ -36,6 +36,7 @@ import { createProcessDownloadClaim } from "../modules/downloads/application/pro
 import { toQbittorrentState } from "../modules/downloads/domain/qbittorrent-state.js";
 import { createProcessMediaProcessingJob } from "../modules/extraction/application/process-media-processing-job.js";
 import { createSyncChannelUseCase } from "../modules/ingestion/application/sync-channel.js";
+import { DEFAULT_BACKFILL_POLICY } from "../modules/ingestion/domain/channel.js";
 import { createSearchReleasesUseCase } from "../modules/search/application/search-releases.js";
 import { createTelegramAccessUseCases } from "../modules/telegram-access/application/use-cases.js";
 import { createLogger } from "../platform/logging/logger.js";
@@ -163,7 +164,7 @@ describe("v1 Sonarr workflow (e2e, fully synthetic)", () => {
       config: { pageSize: 50, backfillMaxMessages: null, rescanWindowSize: 50, rescanIntervalMs: 60_000 },
     });
 
-    const channel = await channelRepo.add({ type: "telegram_id", value: "e2e-chat-1" });
+    const channel = await channelRepo.add({ type: "telegram_id", value: "e2e-chat-1" }, DEFAULT_BACKFILL_POLICY);
     await syncChannelUseCase.syncChannel(channel, 1_000);
 
     const persistedMessage = await messageRepo.findByChatAndTelegramId("e2e-chat-1", 1001);

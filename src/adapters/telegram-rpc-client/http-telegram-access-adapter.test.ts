@@ -1,6 +1,7 @@
 import type { Server } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createFakeTelegramAccessAdapter } from "../telegram-fake/fake-telegram-access-adapter.js";
+import { CHANNEL_1_PHOTO_BYTES } from "../telegram-fake/fixtures.js";
 import { createTelegramAccessUseCases } from "../../modules/telegram-access/application/use-cases.js";
 import { ChatNotFoundError, MessageUnavailableError } from "../../modules/telegram-access/application/use-cases.js";
 import { createTelegramInternalServer } from "../../protocols/telegram-internal/server.js";
@@ -49,6 +50,26 @@ describe("telegram-rpc-client contract", () => {
 
   it("throws ChatNotAccessibleError when getMessages targets an unknown chat", async () => {
     await expect(client.getMessages("does-not-exist", { limit: 10 })).rejects.toThrow("Chat not accessible");
+  });
+
+  it("round-trips getLatestMessageId", async () => {
+    expect(await client.getLatestMessageId("channel-1")).toBe(102);
+  });
+
+  it("throws ChatNotAccessibleError when getLatestMessageId targets an unknown chat", async () => {
+    await expect(client.getLatestMessageId("does-not-exist")).rejects.toThrow("Chat not accessible");
+  });
+
+  it("round-trips getChatPhoto", async () => {
+    expect(await client.getChatPhoto("channel-1")).toEqual(CHANNEL_1_PHOTO_BYTES);
+  });
+
+  it("returns null from getChatPhoto for a chat without a photo", async () => {
+    expect(await client.getChatPhoto("group-2")).toBeNull();
+  });
+
+  it("throws ChatNotAccessibleError when getChatPhoto targets an unknown chat", async () => {
+    await expect(client.getChatPhoto("does-not-exist")).rejects.toThrow("Chat not accessible");
   });
 
   it("round-trips getMessage for a known message", async () => {

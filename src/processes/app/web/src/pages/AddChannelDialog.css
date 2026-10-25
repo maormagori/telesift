@@ -1,0 +1,43 @@
+.add-channel-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.add-channel-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.add-channel-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.add-channel-field input {
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  min-height: 30px;
+  font-weight: 400;
+}
+.add-channel-field input:disabled {
+  opacity: 0.5;
+}
+.add-channel-field input[aria-invalid="true"] {
+  border-color: var(--color-destructive);
+}
+
+.add-channel-hint {
+  font-weight: 400;
+}
+.add-channel-hint-error {
+  color: var(--color-destructive);
+}

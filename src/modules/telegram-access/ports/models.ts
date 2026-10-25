@@ -48,6 +48,9 @@ export const GetMessagesOptionsSchema = z.object({
 });
 export type GetMessagesOptions = z.infer<typeof GetMessagesOptionsSchema>;
 
+export const LatestMessageIdSchema = z.object({ messageId: z.number().int().positive().nullable() });
+export type LatestMessageId = z.infer<typeof LatestMessageIdSchema>;
+
 export const ChatIdParamSchema = z.object({ chatId: z.string().min(1) });
 export const MessageIdParamSchema = z.object({
   chatId: z.string().min(1),

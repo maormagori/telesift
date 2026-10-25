@@ -2,6 +2,7 @@ import "dotenv/config";
 import { z } from "zod";
 import { createKyselyDb, openDatabase } from "../../adapters/sqlite/connection.js";
 import { createSqliteChannelRepository } from "../../adapters/sqlite/channel-repository.js";
+import { DEFAULT_BACKFILL_POLICY } from "../../modules/ingestion/domain/channel.js";
 import { parseChannelIdentifier } from "../../modules/ingestion/domain/channel-identifier.js";
 import { createIngestionUseCases } from "../../modules/ingestion/application/use-cases.js";
 
@@ -44,7 +45,7 @@ async function main(): Promise<void> {
     const identifier = parseChannelIdentifier(identifierRaw!);
     const result =
       command === "add"
-        ? await useCases.addChannel(identifier)
+        ? await useCases.addChannel(identifier, DEFAULT_BACKFILL_POLICY)
         : command === "enable"
           ? await useCases.enableChannel(identifier)
           : await useCases.disableChannel(identifier);

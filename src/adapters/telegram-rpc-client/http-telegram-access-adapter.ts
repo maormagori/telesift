@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   ChatSummarySchema,
   ConnectionStatusSchema,
+  LatestMessageIdSchema,
   MediaDescriptorSchema,
   MessageSummarySchema,
   type ChatSummary,
@@ -93,6 +94,13 @@ export function createHttpTelegramAccessAdapter(
       return z.array(MessageSummarySchema).parse(await res.json());
     },
 
+    async getLatestMessageId(chatId): Promise<number | null> {
+      const res = await get(`/chats/${encodeURIComponent(chatId)}/latest-message-id`);
+      if (res.status === 404) throw new ChatNotAccessibleError(chatId);
+      if (!res.ok) throw new Error(`telegram-service latest message id failed: ${res.status}`);
+      return LatestMessageIdSchema.parse(await res.json()).messageId;
+    },
+
     async getMessage(chatId, messageId): Promise<MessageSummary | null> {
       const res = await get(`/chats/${encodeURIComponent(chatId)}/messages/${messageId}`);
       if (res.status === 404) return resolveNotFound(res, chatId);
@@ -109,6 +117,13 @@ export function createHttpTelegramAccessAdapter(
         descriptor: mediaDescriptorFromHeaders(res.headers),
         stream: Readable.fromWeb(res.body as WebReadableStream<Uint8Array>),
       };
+    },
+
+    async getChatPhoto(chatId): Promise<Buffer | null> {
+      const res = await get(`/chats/${encodeURIComponent(chatId)}/photo`);
+      if (res.status === 404) return resolveNotFound(res, chatId);
+      if (!res.ok) throw new Error(`telegram-service chat photo failed: ${res.status}`);
+      return Buffer.from(await res.arrayBuffer());
     },
   };
 }

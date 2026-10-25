@@ -22,8 +22,10 @@ export interface TelegramAccessUseCases {
   getConnectionStatus(): Promise<ConnectionStatus>;
   listChats(): Promise<ChatSummary[]>;
   getMessages(chatId: string, options: GetMessagesOptions): Promise<MessageSummary[]>;
+  getLatestMessageId(chatId: string): Promise<number | null>;
   getMessage(chatId: string, messageId: number): Promise<MessageSummary>;
   getMediaStream(chatId: string, messageId: number): Promise<MediaStream>;
+  getChatPhoto(chatId: string): Promise<Buffer | null>;
 }
 
 export function createTelegramAccessUseCases(port: TelegramAccessPort): TelegramAccessUseCases {
@@ -33,6 +35,10 @@ export function createTelegramAccessUseCases(port: TelegramAccessPort): Telegram
 
     async getMessages(chatId, options) {
       return withChatTranslation(chatId, () => port.getMessages(chatId, options));
+    },
+
+    async getLatestMessageId(chatId) {
+      return withChatTranslation(chatId, () => port.getLatestMessageId(chatId));
     },
 
     async getMessage(chatId, messageId) {
@@ -45,6 +51,10 @@ export function createTelegramAccessUseCases(port: TelegramAccessPort): Telegram
       const media = await withChatTranslation(chatId, () => port.getMediaStream(chatId, messageId));
       if (!media) throw new MessageUnavailableError(chatId, messageId);
       return media;
+    },
+
+    async getChatPhoto(chatId) {
+      return withChatTranslation(chatId, () => port.getChatPhoto(chatId));
     },
   };
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFakeTelegramAccessAdapter } from "../../../adapters/telegram-fake/fake-telegram-access-adapter.js";
 import type { FakeChatFixture } from "../../../adapters/telegram-fake/fixtures.js";
-import type { Channel } from "../domain/channel.js";
+import { DEFAULT_BACKFILL_POLICY, type Channel } from "../domain/channel.js";
 import type { TelegramChat } from "../domain/telegram-chat.js";
 import type { TelegramChatRepository, UpsertTelegramChatInput } from "../ports/telegram-chat-repository.js";
 import { createChannelResolver } from "./channel-resolution.js";
@@ -53,7 +53,7 @@ describe("channel resolver", () => {
       telegramAccess: createFakeTelegramAccessAdapter([]),
       telegramChatRepo: createFakeTelegramChatRepository(),
     });
-    const channel: Channel = { id: 1, identifier: { type: "telegram_id", value: "chat-1" }, enabled: true, createdAt: 0, updatedAt: 0 };
+    const channel: Channel = { id: 1, identifier: { type: "telegram_id", value: "chat-1" }, enabled: true, backfillPolicy: DEFAULT_BACKFILL_POLICY, createdAt: 0, updatedAt: 0 };
 
     expect(await resolver.resolveExisting(channel)).toBeNull();
   });
@@ -63,7 +63,7 @@ describe("channel resolver", () => {
       telegramAccess: createFakeTelegramAccessAdapter([makeFixture("chat-1")]),
       telegramChatRepo: createFakeTelegramChatRepository(),
     });
-    const channel: Channel = { id: 1, identifier: { type: "telegram_id", value: "chat-1" }, enabled: true, createdAt: 0, updatedAt: 0 };
+    const channel: Channel = { id: 1, identifier: { type: "telegram_id", value: "chat-1" }, enabled: true, backfillPolicy: DEFAULT_BACKFILL_POLICY, createdAt: 0, updatedAt: 0 };
 
     const chat = await resolver.resolveOrDiscover(channel, 1000);
 
@@ -75,7 +75,7 @@ describe("channel resolver", () => {
       telegramAccess: createFakeTelegramAccessAdapter([makeFixture("chat-1", "somechannel")]),
       telegramChatRepo: createFakeTelegramChatRepository(),
     });
-    const channel: Channel = { id: 1, identifier: { type: "username", value: "somechannel" }, enabled: true, createdAt: 0, updatedAt: 0 };
+    const channel: Channel = { id: 1, identifier: { type: "username", value: "somechannel" }, enabled: true, backfillPolicy: DEFAULT_BACKFILL_POLICY, createdAt: 0, updatedAt: 0 };
 
     const chat = await resolver.resolveOrDiscover(channel, 1000);
 
@@ -87,7 +87,7 @@ describe("channel resolver", () => {
       telegramAccess: createFakeTelegramAccessAdapter([]),
       telegramChatRepo: createFakeTelegramChatRepository(),
     });
-    const channel: Channel = { id: 1, identifier: { type: "telegram_id", value: "missing" }, enabled: true, createdAt: 0, updatedAt: 0 };
+    const channel: Channel = { id: 1, identifier: { type: "telegram_id", value: "missing" }, enabled: true, backfillPolicy: DEFAULT_BACKFILL_POLICY, createdAt: 0, updatedAt: 0 };
 
     expect(await resolver.resolveOrDiscover(channel, 1000)).toBeNull();
   });
@@ -96,7 +96,7 @@ describe("channel resolver", () => {
     const telegramAccess = createFakeTelegramAccessAdapter([makeFixture("chat-1")]);
     const telegramChatRepo = createFakeTelegramChatRepository();
     const resolver = createChannelResolver({ telegramAccess, telegramChatRepo });
-    const channel: Channel = { id: 1, identifier: { type: "telegram_id", value: "chat-1" }, enabled: true, createdAt: 0, updatedAt: 0 };
+    const channel: Channel = { id: 1, identifier: { type: "telegram_id", value: "chat-1" }, enabled: true, backfillPolicy: DEFAULT_BACKFILL_POLICY, createdAt: 0, updatedAt: 0 };
     await resolver.resolveOrDiscover(channel, 1000);
 
     const listChatsSpy = vi.spyOn(telegramAccess, "listChats");

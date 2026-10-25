@@ -1,7 +1,7 @@
 import { Router, type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z, ZodError } from "zod";
 import type { AppAuthUseCases } from "../../modules/app-auth/application/use-cases.js";
-import { ChannelNotFoundError } from "../../modules/ingestion/domain/channel.js";
+import { ChannelNotFoundError, DEFAULT_BACKFILL_POLICY } from "../../modules/ingestion/domain/channel.js";
 import { parseChannelIdentifier } from "../../modules/ingestion/domain/channel-identifier.js";
 import type { ChannelStatusUseCases } from "../../modules/ingestion/application/use-cases.js";
 import type { IngestionUseCases } from "../../modules/ingestion/application/use-cases.js";
@@ -19,12 +19,17 @@ import { ChatIdParamSchema, MessageIdParamSchema } from "../../modules/telegram-
 import { requireAuth } from "./session.js";
 
 const LoginBodySchema = z.object({ username: z.string().min(1), password: z.string().min(1) });
-const AddChannelBodySchema = z.object({ identifier: z.string().min(1) });
-const ChannelIdentifierBodySchema = z.object({
-  identifier: z.discriminatedUnion("type", [
-    z.object({ type: z.literal("telegram_id"), value: z.string().min(1) }),
-    z.object({ type: z.literal("username"), value: z.string().min(1) }),
-  ]),
+const ChannelIdentifierSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("telegram_id"), value: z.string().min(1) }),
+  z.object({ type: z.literal("username"), value: z.string().min(1) }),
+]);
+const ChannelIdentifierBodySchema = z.object({ identifier: ChannelIdentifierSchema });
+const AddChannelBodySchema = z.object({
+  // A typed identifier comes from the visible-chat picker; a string is manual entry, parsed as an id or username.
+  identifier: z.union([z.string().min(1), ChannelIdentifierSchema]),
+  backfillPolicy: z
+    .object({ enabled: z.boolean(), maxMessages: z.number().int().positive().nullable() })
+    .default(DEFAULT_BACKFILL_POLICY),
 });
 const MessagesPageQuerySchema = z.object({
   before: z.coerce.number().int().positive().optional(),
@@ -130,13 +135,30 @@ export function createAppApiRoutes(deps: AppApiDeps): Router {
     res.json(await telegramAccess.getConnectionStatus());
   });
 
+  router.get("/telegram/chats", async (_req: Request, res: Response) => {
+    res.json(await channelStatus.listVisibleChats());
+  });
+
+  router.get("/telegram/chats/:chatId/photo", async (req: Request, res: Response) => {
+    const { chatId } = ChatIdParamSchema.parse(req.params);
+    const photo = await telegramAccess.getChatPhoto(chatId);
+    if (!photo) {
+      res.status(404).json({ error: "no_photo" });
+      return;
+    }
+    // Every row of the Channels screen requests one; without caching each page load re-downloads them from Telegram.
+    res.setHeader("Cache-Control", "private, max-age=86400");
+    res.type("image/jpeg").send(photo);
+  });
+
   router.get("/channels", async (_req: Request, res: Response) => {
     res.json(await channelStatus.listChannelsWithStatus());
   });
 
   router.post("/channels", async (req: Request, res: Response) => {
-    const { identifier } = AddChannelBodySchema.parse(req.body);
-    res.status(201).json(await channelStatus.addChannelResolved(parseChannelIdentifier(identifier), Date.now()));
+    const { identifier, backfillPolicy } = AddChannelBodySchema.parse(req.body);
+    const parsed = typeof identifier === "string" ? parseChannelIdentifier(identifier) : identifier;
+    res.status(201).json(await channelStatus.addChannelResolved(parsed, backfillPolicy, Date.now()));
   });
 
   router.post("/channels/enable", async (req: Request, res: Response) => {

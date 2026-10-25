@@ -1,6 +1,7 @@
 import type { Server } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createFakeTelegramAccessAdapter } from "../../adapters/telegram-fake/fake-telegram-access-adapter.js";
+import { CHANNEL_1_PHOTO_BYTES } from "../../adapters/telegram-fake/fixtures.js";
 import { createTelegramAccessUseCases } from "../../modules/telegram-access/application/use-cases.js";
 import type { ChatSummary, MessageSummary } from "../../modules/telegram-access/ports/models.js";
 import { createTelegramInternalServer } from "./server.js";
@@ -65,6 +66,29 @@ describe("telegram-internal server", () => {
 
   it("GET /chats/:chatId/messages returns 404 for an unknown chat", async () => {
     const res = await fetch(`${baseUrl}/chats/does-not-exist/messages`);
+    expect(res.status).toBe(404);
+  });
+
+  it("GET /chats/:chatId/latest-message-id returns the newest message id", async () => {
+    const res = await fetch(`${baseUrl}/chats/group-2/latest-message-id`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ messageId: 203 });
+  });
+
+  it("GET /chats/:chatId/latest-message-id returns 404 for an unknown chat", async () => {
+    const res = await fetch(`${baseUrl}/chats/does-not-exist/latest-message-id`);
+    expect(res.status).toBe(404);
+  });
+
+  it("GET /chats/:chatId/photo returns the chat's photo as JPEG", async () => {
+    const res = await fetch(`${baseUrl}/chats/channel-1/photo`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/jpeg");
+    expect(Buffer.from(await res.arrayBuffer())).toEqual(CHANNEL_1_PHOTO_BYTES);
+  });
+
+  it("GET /chats/:chatId/photo returns 404 for a chat without a photo", async () => {
+    const res = await fetch(`${baseUrl}/chats/group-2/photo`);
     expect(res.status).toBe(404);
   });
 
