@@ -81,8 +81,6 @@ async function main(): Promise<void> {
     buildOrRefreshContextGroup,
     extractionRunRepo,
     llmExtractor,
-    seriesRepo,
-    seriesAliasRepo,
     materializeRelease,
     versions: { pipelineVersion: config.pipelineVersion, promptVersion: config.promptVersion, modelVersion },
   });

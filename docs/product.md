@@ -76,13 +76,13 @@ A self-contained caption or filename can be processed immediately. Incomplete me
 
 ### The LLM is a bounded extractor
 
-The application sends structured message context and media facts to a local OpenAI-compatible endpoint. The model returns schema-validated candidate metadata, confidence, evidence references, ambiguities, and a recommended state. It receives no tools and cannot read Telegram, write records, change settings, or start downloads.
+The application sends structured message context and media facts to a local OpenAI-compatible endpoint. The model returns schema-validated candidate metadata, ambiguities, and a recommended state. It receives no tools and cannot read Telegram, write records, change settings, or start downloads.
 
 Telegram text is untrusted input, not instructions to the model. Video bytes and unbounded history are never sent to the LLM.
 
 ### The application decides visibility
 
-The model cannot verify its own answer. A release may be auto-approved only when the application confirms all required signals: TV classification, an `index` recommendation, no ambiguities, a trustworthy series match, and agreement between deterministic facts and extracted season, episode, and resolution.
+The model cannot verify its own answer. A release may be auto-approved only when the application confirms all required signals: TV classification, an `index` recommendation, no ambiguities, agreement between deterministic facts and extracted season and episode, and a trustworthy series match. A series match is trustworthy only when the observed title is grounded -- found verbatim in the message text or filename, not merely asserted by the model -- before it is used to match or create a series. Resolution is derived deterministically from the video's own dimensions, not extracted by the model, so it plays no part in this cross-check.
 
 Anything short of that enters `pending_review` and stays hidden from Sonarr. Manual edits and decisions create immutable revisions. Later automatic extraction must not overwrite manually verified data without an explicit operator action.
 

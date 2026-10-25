@@ -5,12 +5,6 @@ export interface LlmContextMessage {
   text: string | null;
 }
 
-export interface LlmSeriesCandidate {
-  seriesId: number;
-  canonicalTitle: string;
-  aliases: string[];
-}
-
 export interface LlmExtractionInput {
   channelTitle: string;
   channelUsername: string | null;
@@ -25,11 +19,8 @@ export interface LlmExtractionInput {
   deterministicHints: {
     season: number | null;
     episode: number | null;
-    resolution: string | null;
-    source: string | null;
-    codec: string | null;
+    titleCandidate: string | null;
   };
-  knownSeriesCandidates: LlmSeriesCandidate[];
 }
 
 export interface LlmExtractor {

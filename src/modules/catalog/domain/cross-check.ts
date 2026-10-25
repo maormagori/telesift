@@ -3,24 +3,16 @@ export interface CrossCheckInput {
   extractionEpisode: number | null;
   deterministicSeason: number | null;
   deterministicEpisode: number | null;
-  extractionResolution: string | null;
-  assetHeight: number | null;
 }
 
-const RESOLUTION_HEIGHTS: Record<string, number> = {
-  "2160p": 2160,
-  "1080p": 1080,
-  "720p": 720,
-  "480p": 480,
-  "360p": 360,
-};
-
-const RESOLUTION_TOLERANCE = 0.15;
-
 /**
- * Mechanically-checkable claims per docs/product.md: the deterministic
- * pre-pass and the LLM should agree on season/episode when both found one, and a claimed
- * resolution should roughly match the video's actual height when both are known.
+ * Mechanically-checkable claims per docs/product.md: the deterministic pre-pass and the LLM should
+ * agree on season/episode when both found one.
+ *
+ * Resolution is no longer checked here. It used to compare the LLM's claimed resolution against the
+ * video's actual height, but resolution is now derived from that height (or from a filename tag)
+ * rather than claimed by the model, so the comparison would only check a value against its own
+ * source.
  */
 export function crossCheckExtraction(input: CrossCheckInput): boolean {
   if (
@@ -36,12 +28,6 @@ export function crossCheckExtraction(input: CrossCheckInput): boolean {
     input.deterministicEpisode !== input.extractionEpisode
   ) {
     return false;
-  }
-  if (input.extractionResolution && input.assetHeight) {
-    const expectedHeight = RESOLUTION_HEIGHTS[input.extractionResolution.toLowerCase()];
-    if (expectedHeight && Math.abs(expectedHeight - input.assetHeight) / expectedHeight > RESOLUTION_TOLERANCE) {
-      return false;
-    }
   }
   return true;
 }

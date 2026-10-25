@@ -13,21 +13,15 @@ export interface FakeLlmExtractor extends LlmExtractor {
  * `review` rather than `index` since it has no real judgment to offer.
  */
 function defaultResponder(input: LlmExtractionInput): unknown {
-  const { season, episode, resolution, source, codec } = input.deterministicHints;
+  const { season, episode, titleCandidate } = input.deterministicHints;
   if (season === null || episode === null) return NEGATIVE_RESULT;
 
   return {
     isTvEpisode: true,
-    seriesTitleObserved: input.fileName,
-    seriesTitleCanonical: input.fileName,
-    matchedSeriesId: null,
+    seriesTitleObserved: titleCandidate ?? input.fileName,
     season,
     episode,
-    resolution,
-    source,
-    codec,
     language: null,
-    evidence: {},
     ambiguities: [],
     recommendedState: "review",
   };

@@ -4,6 +4,7 @@ import type { ReleaseReviewState } from "./release.js";
 export interface DecideInitialReviewStateInput {
   extraction: ExtractionResult;
   isNewSeriesCandidate: boolean;
+  seriesTitleGrounded: boolean;
   crossCheckOk: boolean;
   autoIndexEnabled: boolean;
 }
@@ -16,6 +17,7 @@ export interface DecideInitialReviewStateInput {
 export function decideInitialReviewState(input: DecideInitialReviewStateInput): ReleaseReviewState {
   if (!input.autoIndexEnabled) return "pending_review";
   if (!input.extraction.isTvEpisode) return "pending_review";
+  if (!input.seriesTitleGrounded) return "pending_review";
   if (input.extraction.recommendedState !== "index") return "pending_review";
   if (input.extraction.ambiguities.length > 0) return "pending_review";
   if (input.isNewSeriesCandidate) return "pending_review";

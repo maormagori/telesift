@@ -206,8 +206,6 @@ describe("v1 Sonarr workflow (e2e, fully synthetic)", () => {
       buildOrRefreshContextGroup,
       extractionRunRepo,
       llmExtractor: createFakeLlmExtractor(() => CONFIDENT_EPISODE_RESULT),
-      seriesRepo,
-      seriesAliasRepo,
       materializeRelease,
       versions: { pipelineVersion: "v1", promptVersion: "v1", modelVersion: "fake" },
     });

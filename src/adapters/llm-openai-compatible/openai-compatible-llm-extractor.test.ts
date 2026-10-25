@@ -13,8 +13,7 @@ const INPUT: LlmExtractionInput = {
   width: 1920,
   height: 1080,
   contextMessages: [{ messageId: 1, role: "target", relativeOrder: 0, text: null }],
-  deterministicHints: { season: 4, episode: 3, resolution: "1080p", source: null, codec: null },
-  knownSeriesCandidates: [],
+  deterministicHints: { season: 4, episode: 3, titleCandidate: "Fauda" },
 };
 
 describe("openai-compatible LLM extractor", () => {
