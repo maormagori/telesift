@@ -68,6 +68,17 @@ describe("telegram-internal server", () => {
     expect(res.status).toBe(404);
   });
 
+  it("GET /chats/:chatId/latest-message-id returns the newest message id", async () => {
+    const res = await fetch(`${baseUrl}/chats/group-2/latest-message-id`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ messageId: 203 });
+  });
+
+  it("GET /chats/:chatId/latest-message-id returns 404 for an unknown chat", async () => {
+    const res = await fetch(`${baseUrl}/chats/does-not-exist/latest-message-id`);
+    expect(res.status).toBe(404);
+  });
+
   it("GET /chats/:chatId/messages/:messageId returns a single message", async () => {
     const res = await fetch(`${baseUrl}/chats/channel-1/messages/102`);
     expect(res.status).toBe(200);

@@ -92,6 +92,18 @@ export function createTeleprotoTelegramAccessAdapter(credentials: TelegramCreden
       }
     },
 
+    async getLatestMessageId(chatId) {
+      await ensureConnected();
+      try {
+        // Without reverse, teleproto returns newest-first, so a single-message page is the latest one.
+        const [latest] = await client.getMessages(chatId, { limit: 1 });
+        return latest?.id ?? null;
+      } catch (error) {
+        if (isChatNotAccessible(error)) throw new ChatNotAccessibleError(chatId, { cause: error });
+        throw error;
+      }
+    },
+
     async getMessage(chatId, messageId) {
       const message = await fetchSingleMessage(chatId, messageId);
       if (!message) return null;

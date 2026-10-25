@@ -8,6 +8,7 @@ function toChannel(row: Selectable<ChannelsTable>): Channel {
     id: row.id,
     identifier: { type: row.identifier_type, value: row.identifier_value },
     enabled: row.enabled === 1,
+    backfillPolicy: { enabled: row.backfill_enabled === 1, maxMessages: row.backfill_max_messages },
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -24,7 +25,7 @@ export function createSqliteChannelRepository(db: Kysely<DB>): ChannelRepository
   }
 
   return {
-    async add(identifier) {
+    async add(identifier, backfillPolicy) {
       const now = Date.now();
       await db
         .insertInto("channels")
@@ -32,6 +33,8 @@ export function createSqliteChannelRepository(db: Kysely<DB>): ChannelRepository
           identifier_type: identifier.type,
           identifier_value: identifier.value,
           enabled: 1,
+          backfill_enabled: backfillPolicy.enabled ? 1 : 0,
+          backfill_max_messages: backfillPolicy.maxMessages,
           created_at: now,
           updated_at: now,
         })

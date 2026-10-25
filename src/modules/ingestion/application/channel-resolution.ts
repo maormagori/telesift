@@ -1,11 +1,8 @@
 import type { TelegramAccessPort } from "../../telegram-access/ports/telegram-access-port.js";
-import type { Channel, ChannelIdentifier } from "../domain/channel.js";
+import type { Channel } from "../domain/channel.js";
+import { matchesChannelIdentifier } from "../domain/channel-identifier.js";
 import type { TelegramChat } from "../domain/telegram-chat.js";
 import type { TelegramChatRepository } from "../ports/telegram-chat-repository.js";
-
-function matchesIdentifier(id: string, username: string | null, identifier: ChannelIdentifier): boolean {
-  return identifier.type === "telegram_id" ? id === identifier.value : username === identifier.value;
-}
 
 export interface ChannelResolverDeps {
   telegramAccess: TelegramAccessPort;
@@ -27,7 +24,7 @@ export function createChannelResolver(deps: ChannelResolverDeps): ChannelResolve
       return telegramChatRepo.findByTelegramId(channel.identifier.value);
     }
     const chats = await telegramChatRepo.list();
-    return chats.find((entry) => matchesIdentifier(entry.telegramId, entry.username, channel.identifier)) ?? null;
+    return chats.find((entry) => matchesChannelIdentifier(entry.telegramId, entry.username, channel.identifier)) ?? null;
   }
 
   async function resolveOrDiscover(channel: Channel, now: number): Promise<TelegramChat | null> {
@@ -35,7 +32,7 @@ export function createChannelResolver(deps: ChannelResolverDeps): ChannelResolve
     if (existing) return existing;
 
     const remoteChats = await telegramAccess.listChats();
-    const match = remoteChats.find((chat) => matchesIdentifier(chat.id, chat.username, channel.identifier));
+    const match = remoteChats.find((chat) => matchesChannelIdentifier(chat.id, chat.username, channel.identifier));
     if (!match) return null;
 
     return telegramChatRepo.upsert({

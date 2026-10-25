@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createFakeTelegramAccessAdapter } from "../../../adapters/telegram-fake/fake-telegram-access-adapter.js";
 import type { FakeChatFixture } from "../../../adapters/telegram-fake/fixtures.js";
-import { ChannelNotFoundError, type Channel, type ChannelIdentifier } from "../domain/channel.js";
+import type { ChatSummary } from "../../telegram-access/ports/models.js";
+import { ChannelNotFoundError, DEFAULT_BACKFILL_POLICY, type Channel, type ChannelIdentifier } from "../domain/channel.js";
 import type { ChatSyncState } from "../domain/chat-sync-state.js";
 import type { TelegramChat } from "../domain/telegram-chat.js";
 import type { ChannelRepository } from "../ports/channel-repository.js";
@@ -19,11 +20,11 @@ function createFakeChannelRepository(): ChannelRepository {
   let nextId = 1;
 
   return {
-    async add(identifier) {
+    async add(identifier, backfillPolicy) {
       const existing = channels.find((channel) => sameIdentifier(channel.identifier, identifier));
       if (existing) return existing;
       const now = Date.now();
-      const created: Channel = { id: nextId++, identifier, enabled: true, createdAt: now, updatedAt: now };
+      const created: Channel = { id: nextId++, identifier, enabled: true, backfillPolicy, createdAt: now, updatedAt: now };
       channels.push(created);
       return created;
     },
@@ -46,7 +47,7 @@ describe("ingestion use-cases", () => {
   it("adds a new channel as enabled", async () => {
     const useCases = createIngestionUseCases(createFakeChannelRepository());
 
-    const channel = await useCases.addChannel({ type: "username", value: "somechannel" });
+    const channel = await useCases.addChannel({ type: "username", value: "somechannel" }, DEFAULT_BACKFILL_POLICY);
 
     expect(channel).toMatchObject({ identifier: { type: "username", value: "somechannel" }, enabled: true });
   });
@@ -55,8 +56,8 @@ describe("ingestion use-cases", () => {
     const useCases = createIngestionUseCases(createFakeChannelRepository());
     const identifier: ChannelIdentifier = { type: "telegram_id", value: "123" };
 
-    const first = await useCases.addChannel(identifier);
-    const second = await useCases.addChannel(identifier);
+    const first = await useCases.addChannel(identifier, DEFAULT_BACKFILL_POLICY);
+    const second = await useCases.addChannel(identifier, DEFAULT_BACKFILL_POLICY);
 
     expect(second).toEqual(first);
     expect(await useCases.listChannels()).toHaveLength(1);
@@ -65,7 +66,7 @@ describe("ingestion use-cases", () => {
   it("disables and re-enables a channel without removing it", async () => {
     const useCases = createIngestionUseCases(createFakeChannelRepository());
     const identifier: ChannelIdentifier = { type: "username", value: "somechannel" };
-    await useCases.addChannel(identifier);
+    await useCases.addChannel(identifier, DEFAULT_BACKFILL_POLICY);
 
     const disabled = await useCases.disableChannel(identifier);
     expect(disabled.enabled).toBe(false);
@@ -85,8 +86,8 @@ describe("ingestion use-cases", () => {
 
   it("lists every added channel", async () => {
     const useCases = createIngestionUseCases(createFakeChannelRepository());
-    await useCases.addChannel({ type: "username", value: "a" });
-    await useCases.addChannel({ type: "telegram_id", value: "1" });
+    await useCases.addChannel({ type: "username", value: "a" }, DEFAULT_BACKFILL_POLICY);
+    await useCases.addChannel({ type: "telegram_id", value: "1" }, DEFAULT_BACKFILL_POLICY);
 
     expect(await useCases.listChannels()).toHaveLength(2);
   });
@@ -181,51 +182,58 @@ function createFakeChatSyncStateRepository(): ChatSyncStateRepository {
   };
 }
 
-function makeFixture(chatId: string, username: string | null = null): FakeChatFixture {
+function makeFixture(chatId: string, username: string | null = null, type: ChatSummary["type"] = "channel"): FakeChatFixture {
   return {
-    chat: { id: chatId, title: `Chat ${chatId}`, type: "channel", username },
+    chat: { id: chatId, title: `Chat ${chatId}`, type, username },
     messages: [],
     media: {},
   };
 }
 
+function buildChannelStatus(fixtures: FakeChatFixture[]) {
+  const channelRepo = createFakeChannelRepository();
+  const chatSyncStateRepo = createFakeChatSyncStateRepository();
+  const telegramAccess = createFakeTelegramAccessAdapter(fixtures);
+  const resolver = createChannelResolver({ telegramAccess, telegramChatRepo: createFakeTelegramChatRepository() });
+  const useCases = createChannelStatusUseCases({ channelRepo, chatSyncStateRepo, resolver, telegramAccess });
+  return { channelRepo, chatSyncStateRepo, useCases };
+}
+
 describe("channel status use-cases", () => {
   it("addChannelResolved resolves a channel that's already visible to the account", async () => {
-    const channelRepo = createFakeChannelRepository();
-    const resolver = createChannelResolver({
-      telegramAccess: createFakeTelegramAccessAdapter([makeFixture("chat-1")]),
-      telegramChatRepo: createFakeTelegramChatRepository(),
-    });
-    const useCases = createChannelStatusUseCases({ channelRepo, chatSyncStateRepo: createFakeChatSyncStateRepository(), resolver });
+    const { useCases } = buildChannelStatus([makeFixture("chat-1")]);
 
-    const result = await useCases.addChannelResolved({ type: "telegram_id", value: "chat-1" }, 1000);
+    const result = await useCases.addChannelResolved({ type: "telegram_id", value: "chat-1" }, DEFAULT_BACKFILL_POLICY, 1000);
 
     expect(result.resolution).toMatchObject({ status: "resolved", chat: { telegramId: "chat-1" } });
   });
 
-  it("addChannelResolved still persists the channel when it isn't visible yet", async () => {
-    const channelRepo = createFakeChannelRepository();
-    const resolver = createChannelResolver({
-      telegramAccess: createFakeTelegramAccessAdapter([]),
-      telegramChatRepo: createFakeTelegramChatRepository(),
-    });
-    const useCases = createChannelStatusUseCases({ channelRepo, chatSyncStateRepo: createFakeChatSyncStateRepository(), resolver });
+  it("addChannelResolved stores the requested backfill policy", async () => {
+    const { useCases } = buildChannelStatus([makeFixture("chat-1")]);
 
-    const result = await useCases.addChannelResolved({ type: "telegram_id", value: "chat-missing" }, 1000);
+    const result = await useCases.addChannelResolved(
+      { type: "telegram_id", value: "chat-1" },
+      { enabled: true, maxMessages: 25 },
+      1000,
+    );
+
+    expect(result.channel.backfillPolicy).toEqual({ enabled: true, maxMessages: 25 });
+  });
+
+  it("addChannelResolved still persists the channel when it isn't visible yet", async () => {
+    const { channelRepo, useCases } = buildChannelStatus([]);
+
+    const result = await useCases.addChannelResolved({ type: "telegram_id", value: "chat-missing" }, DEFAULT_BACKFILL_POLICY, 1000);
 
     expect(result.resolution).toEqual({ status: "unresolved" });
     expect(await channelRepo.list()).toHaveLength(1);
   });
 
   it("listChannelsWithStatus combines channels, resolved chats, and sync state", async () => {
-    const channelRepo = createFakeChannelRepository();
-    const telegramChatRepo = createFakeTelegramChatRepository();
-    const chatSyncStateRepo = createFakeChatSyncStateRepository();
-    const resolver = createChannelResolver({ telegramAccess: createFakeTelegramAccessAdapter([makeFixture("chat-1")]), telegramChatRepo });
-    const useCases = createChannelStatusUseCases({ channelRepo, chatSyncStateRepo, resolver });
+    const { channelRepo, chatSyncStateRepo, useCases } = buildChannelStatus([makeFixture("chat-1")]);
 
-    await useCases.addChannelResolved({ type: "telegram_id", value: "chat-1" }, 1000);
-    await channelRepo.add({ type: "telegram_id", value: "chat-not-yet-visible" });
+    await useCases.addChannelResolved({ type: "telegram_id", value: "chat-1" }, DEFAULT_BACKFILL_POLICY, 1000);
+    await channelRepo.add({ type: "telegram_id", value: "chat-not-yet-visible" }, DEFAULT_BACKFILL_POLICY);
     await chatSyncStateRepo.advanceIncrementalCursor("chat-1", 42, 1000);
 
     const statuses = await useCases.listChannelsWithStatus();
@@ -238,4 +246,35 @@ describe("channel status use-cases", () => {
     expect(unresolved?.chat).toBeNull();
     expect(unresolved?.syncState).toBeNull();
   });
+
+  it("listVisibleChats offers channels and groups but not private chats", async () => {
+    const { useCases } = buildChannelStatus([
+      makeFixture("chat-channel", null, "channel"),
+      makeFixture("chat-group", null, "group"),
+      makeFixture("chat-user", null, "user"),
+    ]);
+
+    const visible = await useCases.listVisibleChats();
+
+    expect(visible.map((entry) => entry.chat.id)).toEqual(["chat-channel", "chat-group"]);
+  });
+
+  it("listVisibleChats marks chats already configured by id or by username", async () => {
+    const { channelRepo, useCases } = buildChannelStatus([
+      makeFixture("chat-by-id"),
+      makeFixture("chat-by-username", "examplechannel"),
+      makeFixture("chat-not-added"),
+    ]);
+    const byId = await channelRepo.add({ type: "telegram_id", value: "chat-by-id" }, DEFAULT_BACKFILL_POLICY);
+    const byUsername = await channelRepo.add({ type: "username", value: "examplechannel" }, DEFAULT_BACKFILL_POLICY);
+
+    const visible = await useCases.listVisibleChats();
+
+    expect(visible.map((entry) => [entry.chat.id, entry.channel?.id ?? null])).toEqual([
+      ["chat-by-id", byId.id],
+      ["chat-by-username", byUsername.id],
+      ["chat-not-added", null],
+    ]);
+  });
 });
+

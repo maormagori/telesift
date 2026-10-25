@@ -1,20 +1,41 @@
 export type ChannelIdentifier = { type: "telegram_id"; value: string } | { type: "username"; value: string };
 
+/** `maxMessages` counts back from the newest message; null means all history (or ingestion-worker's default limit). */
+export interface BackfillPolicy {
+  enabled: boolean;
+  maxMessages: number | null;
+}
+
 export interface Channel {
   id: number;
   identifier: ChannelIdentifier;
   enabled: boolean;
+  backfillPolicy: BackfillPolicy;
   createdAt: number;
   updatedAt: number;
 }
 
+export type TelegramChatType = "channel" | "group" | "user";
+
 export interface TelegramChat {
   telegramId: string;
   title: string;
-  type: "channel" | "group" | "user";
+  type: TelegramChatType;
   username: string | null;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface ChatSummary {
+  id: string;
+  title: string;
+  type: TelegramChatType;
+  username: string | null;
+}
+
+export interface VisibleChat {
+  chat: ChatSummary;
+  channel: Channel | null;
 }
 
 export interface ChatSyncState {
@@ -241,10 +262,13 @@ export const api = {
 
   getTelegramStatus: () => request<ConnectionStatus>("/telegram/status"),
 
+  listVisibleChats: () => request<VisibleChat[]>("/telegram/chats"),
+
   listChannels: () => request<ChannelWithStatus[]>("/channels"),
 
-  addChannel: (identifier: string) =>
-    request<AddChannelResponse>("/channels", { method: "POST", body: JSON.stringify({ identifier }) }),
+  /** A string identifier is parsed server-side as a numeric chat id or a username. */
+  addChannel: (identifier: string | ChannelIdentifier, backfillPolicy: BackfillPolicy) =>
+    request<AddChannelResponse>("/channels", { method: "POST", body: JSON.stringify({ identifier, backfillPolicy }) }),
 
   enableChannel: (identifier: ChannelIdentifier) =>
     request<Channel>("/channels/enable", { method: "POST", body: JSON.stringify({ identifier }) }),

@@ -1,6 +1,11 @@
 import { Router, type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { ZodError } from "zod";
-import { ChatIdParamSchema, GetMessagesOptionsSchema, MessageIdParamSchema } from "../../modules/telegram-access/ports/models.js";
+import {
+  ChatIdParamSchema,
+  GetMessagesOptionsSchema,
+  MessageIdParamSchema,
+  type LatestMessageId,
+} from "../../modules/telegram-access/ports/models.js";
 import { isTelegramAccessNotFoundError, type TelegramAccessUseCases } from "../../modules/telegram-access/application/use-cases.js";
 
 export function createTelegramInternalRoutes(useCases: TelegramAccessUseCases): Router {
@@ -22,6 +27,12 @@ export function createTelegramInternalRoutes(useCases: TelegramAccessUseCases): 
     const { chatId } = ChatIdParamSchema.parse(req.params);
     const options = GetMessagesOptionsSchema.parse(req.query);
     res.json(await useCases.getMessages(chatId, options));
+  });
+
+  router.get("/chats/:chatId/latest-message-id", async (req: Request, res: Response) => {
+    const { chatId } = ChatIdParamSchema.parse(req.params);
+    const body: LatestMessageId = { messageId: await useCases.getLatestMessageId(chatId) };
+    res.json(body);
   });
 
   router.get("/chats/:chatId/messages/:messageId", async (req: Request, res: Response) => {

@@ -51,6 +51,14 @@ describe("telegram-rpc-client contract", () => {
     await expect(client.getMessages("does-not-exist", { limit: 10 })).rejects.toThrow("Chat not accessible");
   });
 
+  it("round-trips getLatestMessageId", async () => {
+    expect(await client.getLatestMessageId("channel-1")).toBe(102);
+  });
+
+  it("throws ChatNotAccessibleError when getLatestMessageId targets an unknown chat", async () => {
+    await expect(client.getLatestMessageId("does-not-exist")).rejects.toThrow("Chat not accessible");
+  });
+
   it("round-trips getMessage for a known message", async () => {
     const message = await client.getMessage("channel-1", 102);
     expect(message).toEqual({

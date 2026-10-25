@@ -1,9 +1,11 @@
+import { promises as fs } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { Kysely } from "kysely";
+import { sql, type Kysely } from "kysely";
+import { FileMigrationProvider, Migrator } from "kysely/migration";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ChannelNotFoundError } from "../../modules/ingestion/domain/channel.js";
+import { ChannelNotFoundError, DEFAULT_BACKFILL_POLICY } from "../../modules/ingestion/domain/channel.js";
 import type { ChannelRepository } from "../../modules/ingestion/ports/channel-repository.js";
 import { createKyselyDb, openDatabase } from "./connection.js";
 import { applyMigrations, MIGRATIONS_DIR } from "./migrate.js";
@@ -28,7 +30,7 @@ describe("sqlite channel repository", () => {
   });
 
   it("adds a channel by telegram id, defaulting to enabled", async () => {
-    const channel = await repo.add({ type: "telegram_id", value: "-1001234567890" });
+    const channel = await repo.add({ type: "telegram_id", value: "-1001234567890" }, DEFAULT_BACKFILL_POLICY);
 
     expect(channel).toMatchObject({
       identifier: { type: "telegram_id", value: "-1001234567890" },
@@ -37,7 +39,7 @@ describe("sqlite channel repository", () => {
   });
 
   it("adds a channel by username", async () => {
-    const channel = await repo.add({ type: "username", value: "somechannel" });
+    const channel = await repo.add({ type: "username", value: "somechannel" }, DEFAULT_BACKFILL_POLICY);
 
     expect(channel).toMatchObject({ identifier: { type: "username", value: "somechannel" }, enabled: true });
   });
@@ -45,16 +47,58 @@ describe("sqlite channel repository", () => {
   it("adding the same identifier twice is idempotent", async () => {
     const identifier = { type: "username" as const, value: "somechannel" };
 
-    const first = await repo.add(identifier);
-    const second = await repo.add(identifier);
+    const first = await repo.add(identifier, DEFAULT_BACKFILL_POLICY);
+    const second = await repo.add(identifier, DEFAULT_BACKFILL_POLICY);
 
     expect(second).toEqual(first);
     expect(await repo.list()).toHaveLength(1);
   });
 
+  it("stores the backfill policy given at add time", async () => {
+    const limited = await repo.add({ type: "username", value: "limited" }, { enabled: true, maxMessages: 250 });
+    const newOnly = await repo.add({ type: "username", value: "newonly" }, { enabled: false, maxMessages: null });
+
+    expect(limited.backfillPolicy).toEqual({ enabled: true, maxMessages: 250 });
+    expect(newOnly.backfillPolicy).toEqual({ enabled: false, maxMessages: null });
+    expect((await repo.list()).map((channel) => channel.backfillPolicy)).toEqual([
+      { enabled: true, maxMessages: 250 },
+      { enabled: false, maxMessages: null },
+    ]);
+  });
+
+  it("re-adding an existing identifier keeps its original backfill policy", async () => {
+    const identifier = { type: "username" as const, value: "somechannel" };
+    await repo.add(identifier, { enabled: true, maxMessages: 250 });
+
+    const again = await repo.add(identifier, { enabled: false, maxMessages: null });
+
+    expect(again.backfillPolicy).toEqual({ enabled: true, maxMessages: 250 });
+  });
+
+  it("gives channels created before the backfill-policy migration the default policy", async () => {
+    const legacy = createKyselyDb(openDatabase(path.join(dir, "legacy.sqlite3")));
+    try {
+      const migrator = new Migrator({
+        db: legacy,
+        provider: new FileMigrationProvider({ fs, path, migrationFolder: MIGRATIONS_DIR }),
+      });
+      await migrator.migrateTo("0013_add_release_search_index");
+      await sql`INSERT INTO channels (identifier_type, identifier_value, enabled, created_at, updated_at)
+        VALUES ('username', 'legacychannel', 1, 1, 1)`.execute(legacy);
+
+      const { error } = await migrator.migrateToLatest();
+      expect(error).toBeUndefined();
+
+      const [channel] = await createSqliteChannelRepository(legacy).list();
+      expect(channel?.backfillPolicy).toEqual(DEFAULT_BACKFILL_POLICY);
+    } finally {
+      await legacy.destroy();
+    }
+  });
+
   it("disables and re-enables a channel without removing the row", async () => {
     const identifier = { type: "username" as const, value: "somechannel" };
-    await repo.add(identifier);
+    await repo.add(identifier, DEFAULT_BACKFILL_POLICY);
 
     const disabled = await repo.setEnabled(identifier, false);
     expect(disabled.enabled).toBe(false);
@@ -71,8 +115,8 @@ describe("sqlite channel repository", () => {
   });
 
   it("lists all channels with their enabled state", async () => {
-    await repo.add({ type: "username", value: "a" });
-    const b = await repo.add({ type: "telegram_id", value: "1" });
+    await repo.add({ type: "username", value: "a" }, DEFAULT_BACKFILL_POLICY);
+    const b = await repo.add({ type: "telegram_id", value: "1" }, DEFAULT_BACKFILL_POLICY);
     await repo.setEnabled(b.identifier, false);
 
     const channels = await repo.list();

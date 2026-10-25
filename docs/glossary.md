@@ -22,9 +22,11 @@ This glossary defines terms used in the current code and documentation. Exact st
 
 ## Sources and ingestion
 
-**Configured channel** — operator-supplied Telegram username or numeric ID plus an enabled flag. It may exist before Telegram successfully resolves it.
+**Configured channel** — operator-supplied Telegram username or numeric ID plus an enabled flag and a backfill policy. It may exist before Telegram successfully resolves it.
 
-**Telegram chat** — resolved Telegram channel, group, or user visible to the connected account. V1 is intended for channels and groups.
+**Backfill policy** — per-channel choice, fixed when the channel is added, of whether to backfill existing history and how many of the newest messages to include. A channel without its own message limit uses `INGESTION_BACKFILL_MAX_MESSAGES`, or all retained history when that is unset.
+
+**Telegram chat** — resolved Telegram channel, group, or user visible to the connected account. V1 is intended for channels and groups; only those are offered when picking a chat to add.
 
 **Chat sync state** — durable cursors and status for incremental polling, backfill, recent rescans, and the latest ingestion error.
 
@@ -34,7 +36,7 @@ This glossary defines terms used in the current code and documentation. Exact st
 
 **Source fingerprint** — hash of normalized message/media input. An unchanged fingerprint prevents overlap scans from scheduling duplicate work.
 
-**Backfill** — reading older messages toward the beginning of a configured chat's retained history.
+**Backfill** — ingesting a configured chat's existing history after it is added: a forward walk from a starting message set once by the backfill policy (the beginning of retained history, the newest N messages, or only new messages) up to the newest message.
 
 **Incremental poll** — reading messages newer than the chat's durable newest-seen cursor.
 

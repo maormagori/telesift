@@ -16,7 +16,7 @@ import type { FakeChatFixture } from "../../../adapters/telegram-fake/fixtures.j
 import type { Logger } from "../../../platform/logging/logger.js";
 import type { MediaDescriptor, MessageSummary } from "../../telegram-access/ports/models.js";
 import type { TelegramAccessPort } from "../../telegram-access/ports/telegram-access-port.js";
-import type { Channel } from "../domain/channel.js";
+import { DEFAULT_BACKFILL_POLICY, type BackfillPolicy, type Channel } from "../domain/channel.js";
 import { createSyncChannelUseCase, type SyncChannelConfig } from "./sync-channel.js";
 
 function makeMessage(chatId: string, messageId: number, overrides: Partial<MessageSummary> = {}): MessageSummary {
@@ -85,8 +85,14 @@ describe("syncChannel use case", () => {
     });
   }
 
-  async function addChannel(chatId: string): Promise<Channel> {
-    return createSqliteChannelRepository(kysely).add({ type: "telegram_id", value: chatId });
+  async function addChannel(chatId: string, backfillPolicy: BackfillPolicy = DEFAULT_BACKFILL_POLICY): Promise<Channel> {
+    return createSqliteChannelRepository(kysely).add({ type: "telegram_id", value: chatId }, backfillPolicy);
+  }
+
+  function ingestedMessageIds(): number[] {
+    return (db.prepare("SELECT telegram_message_id AS id FROM telegram_messages ORDER BY id").all() as { id: number }[]).map(
+      (row) => row.id,
+    );
   }
 
   function messageCount(): number {
@@ -250,5 +256,92 @@ describe("syncChannel use case", () => {
     expect(messageCount()).toBe(150);
     const syncState = await createSqliteChatSyncStateRepository(kysely).get(chatId);
     expect(syncState?.backfillCompletedAt).not.toBeNull();
+  });
+
+  it("backfills only a channel's newest N messages, then keeps polling forward", async () => {
+    const chatId = "chat-1";
+    const fixture = makeFixture(chatId, 250);
+    const useCase = buildUseCase(createFakeTelegramAccessAdapter([fixture]), createTestLogger());
+    const channel = await addChannel(chatId, { enabled: true, maxMessages: 50 });
+
+    await useCase.syncChannel(channel, 1000);
+    expect(ingestedMessageIds()).toEqual(Array.from({ length: 50 }, (_, i) => 201 + i));
+    expect((await createSqliteChatSyncStateRepository(kysely).get(chatId))?.backfillCompletedAt).not.toBeNull();
+
+    fixture.messages.push(makeMessage(chatId, 251));
+    await useCase.syncChannel(channel, 2000);
+    expect(ingestedMessageIds()).toContain(251);
+    expect(messageCount()).toBe(51);
+  });
+
+  it("ingests only messages posted after the add when the channel's backfill is disabled", async () => {
+    const chatId = "chat-1";
+    const fixture = makeFixture(chatId, 20);
+    const useCase = buildUseCase(createFakeTelegramAccessAdapter([fixture]), createTestLogger());
+    const channel = await addChannel(chatId, { enabled: false, maxMessages: null });
+
+    await useCase.syncChannel(channel, 1000);
+    expect(messageCount()).toBe(0);
+    expect((await createSqliteChatSyncStateRepository(kysely).get(chatId))?.backfillCompletedAt).not.toBeNull();
+
+    fixture.messages.push(makeMessage(chatId, 21));
+    await useCase.syncChannel(channel, 2000);
+    expect(ingestedMessageIds()).toEqual([21]);
+  });
+
+  it("falls back to the configured default limit only when the channel sets none", async () => {
+    const telegramAccess = createFakeTelegramAccessAdapter([makeFixture("chat-default", 100), makeFixture("chat-own", 100)]);
+    const useCase = buildUseCase(telegramAccess, createTestLogger(), { backfillMaxMessages: 30 });
+    const countFor = (chatId: string) =>
+      (db.prepare("SELECT COUNT(*) AS n FROM telegram_messages WHERE chat_id = ?").get(chatId) as { n: number }).n;
+
+    await useCase.syncChannel(await addChannel("chat-default"), 1000);
+    await useCase.syncChannel(await addChannel("chat-own", { enabled: true, maxMessages: 10 }), 1000);
+
+    expect(countFor("chat-default")).toBe(30);
+    expect(countFor("chat-own")).toBe(10);
+  });
+
+  it("seeds the backfill cursor once, not on every page of a multi-page backfill", async () => {
+    const chatId = "chat-1";
+    const telegramAccess = createFakeTelegramAccessAdapter([makeFixture(chatId, 500)]);
+    const latestSpy = vi.spyOn(telegramAccess, "getLatestMessageId");
+    const getMessagesSpy = vi.spyOn(telegramAccess, "getMessages");
+    const useCase = buildUseCase(telegramAccess, createTestLogger());
+    const channel = await addChannel(chatId, { enabled: true, maxMessages: 150 });
+
+    await useCase.syncChannel(channel, 1000);
+    await useCase.syncChannel(channel, 2000);
+
+    expect(latestSpy).toHaveBeenCalledOnce();
+    expect(getMessagesSpy).toHaveBeenCalledWith(chatId, { minId: 350, limit: 100 });
+    expect(getMessagesSpy).toHaveBeenCalledWith(chatId, { minId: 450, limit: 100 });
+    expect(messageCount()).toBe(150);
+  });
+
+  it("does not look up the latest message when a channel backfills all history", async () => {
+    const chatId = "chat-1";
+    const telegramAccess = createFakeTelegramAccessAdapter([makeFixture(chatId, 5)]);
+    const latestSpy = vi.spyOn(telegramAccess, "getLatestMessageId");
+
+    await buildUseCase(telegramAccess, createTestLogger()).syncChannel(await addChannel(chatId), 1000);
+
+    expect(latestSpy).not.toHaveBeenCalled();
+    expect(messageCount()).toBe(5);
+  });
+
+  it("retries seeding after a first sync that failed before fetching any page", async () => {
+    const chatId = "chat-1";
+    const telegramAccess = createFakeTelegramAccessAdapter([makeFixture(chatId, 100)]);
+    vi.spyOn(telegramAccess, "getLatestMessageId").mockRejectedValueOnce(new Error("telegram-service unavailable"));
+    const useCase = buildUseCase(telegramAccess, createTestLogger());
+    const channel = await addChannel(chatId, { enabled: true, maxMessages: 10 });
+
+    await useCase.syncChannel(channel, 1000);
+    expect((await createSqliteChatSyncStateRepository(kysely).get(chatId))?.lastError).toBe("telegram-service unavailable");
+    expect(messageCount()).toBe(0);
+
+    await useCase.syncChannel(channel, 2000);
+    expect(ingestedMessageIds()).toEqual(Array.from({ length: 10 }, (_, i) => 91 + i));
   });
 });

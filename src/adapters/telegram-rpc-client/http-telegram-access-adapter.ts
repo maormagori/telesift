@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   ChatSummarySchema,
   ConnectionStatusSchema,
+  LatestMessageIdSchema,
   MediaDescriptorSchema,
   MessageSummarySchema,
   type ChatSummary,
@@ -91,6 +92,13 @@ export function createHttpTelegramAccessAdapter(
       if (res.status === 404) throw new ChatNotAccessibleError(chatId);
       if (!res.ok) throw new Error(`telegram-service messages failed: ${res.status}`);
       return z.array(MessageSummarySchema).parse(await res.json());
+    },
+
+    async getLatestMessageId(chatId): Promise<number | null> {
+      const res = await get(`/chats/${encodeURIComponent(chatId)}/latest-message-id`);
+      if (res.status === 404) throw new ChatNotAccessibleError(chatId);
+      if (!res.ok) throw new Error(`telegram-service latest message id failed: ${res.status}`);
+      return LatestMessageIdSchema.parse(await res.json()).messageId;
     },
 
     async getMessage(chatId, messageId): Promise<MessageSummary | null> {

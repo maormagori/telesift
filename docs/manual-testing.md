@@ -49,6 +49,7 @@ Telegram clients display), then:
 
 ```
 curl "localhost:4001/chats/<chatId>/messages?limit=20"
+curl "localhost:4001/chats/<chatId>/latest-message-id"
 curl "localhost:4001/chats/<chatId>/messages/<messageId>"
 curl "localhost:4001/chats/<chatId>/messages/<messageId>/media" -o out.bin
 ```
@@ -98,15 +99,25 @@ proxying `/api` to it. Open the Vite dev server's printed URL in a browser.
 
 - Log in with the credential from step 1. Confirm a bad password is rejected
   and the session persists across a page reload.
-- On the Channels screen, add a real channel/group visible to the Telegram
-  account (username or numeric chat id). Confirm it resolves immediately and
-  shows its title — this is the synchronous add-time resolution, not
-  `ingestion-worker`'s poll loop.
+- On the Channels screen, confirm the "Chats visible to this account" list
+  shows the account's channels and groups but no private chats, and that
+  typing part of a title or username filters it case-insensitively.
+- Add a chat from that list. Confirm the configuration dialog opens, then add
+  it with backfill enabled and a small message count (e.g. 20). Confirm it
+  resolves immediately and shows its title — this is the synchronous add-time
+  resolution, not `ingestion-worker`'s poll loop — and that the list now marks
+  it "Added" with no Add button.
+- Add a real channel/group by typing its username or numeric chat id in the
+  identifier field. Confirm the same configuration dialog opens first; add it
+  with backfill unchecked.
 - Add an identifier that isn't visible to the account. Confirm the add still
   succeeds but is reported unresolved, and doesn't block the request.
 - With `ingestion-worker` also running (`npm run dev:ingestion-worker`),
   confirm the channel's sync progress (backfill/caught-up state, or an error)
-  updates on the Channels screen as it syncs.
+  updates on the Channels screen as it syncs. Open the limited channel's
+  message view and confirm it holds only its newest messages (up to the count
+  you chose); confirm the backfill-disabled channel stays empty until a new
+  message is posted, then picks that message up.
 - Open a resolved channel's raw message view. Confirm messages render, media
   metadata (filename/size/type) shows for messages with attachments, and a
   media preview/download actually streams real bytes from Telegram.

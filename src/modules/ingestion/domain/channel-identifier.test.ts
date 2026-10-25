@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseChannelIdentifier } from "./channel-identifier.js";
+import { matchesChannelIdentifier, parseChannelIdentifier } from "./channel-identifier.js";
 
 describe("parseChannelIdentifier", () => {
   it("parses a positive numeric string as a telegram_id", () => {
@@ -19,5 +19,17 @@ describe("parseChannelIdentifier", () => {
 
   it("strips a leading @ from a username", () => {
     expect(parseChannelIdentifier("@somechannel")).toEqual({ type: "username", value: "somechannel" });
+  });
+});
+
+describe("matchesChannelIdentifier", () => {
+  it("matches a telegram_id identifier against the chat id only", () => {
+    expect(matchesChannelIdentifier("123", "somechannel", { type: "telegram_id", value: "123" })).toBe(true);
+    expect(matchesChannelIdentifier("456", "123", { type: "telegram_id", value: "123" })).toBe(false);
+  });
+
+  it("matches a username identifier against the chat username only", () => {
+    expect(matchesChannelIdentifier("123", "somechannel", { type: "username", value: "somechannel" })).toBe(true);
+    expect(matchesChannelIdentifier("somechannel", null, { type: "username", value: "somechannel" })).toBe(false);
   });
 });

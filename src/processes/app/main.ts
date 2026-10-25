@@ -68,7 +68,12 @@ async function main(): Promise<void> {
       appAuth: createAppAuthUseCases({ username: config.adminUsername, passwordHash: config.adminPasswordHash }),
       telegramAccess,
       ingestion: createIngestionUseCases(channelRepo),
-      channelStatus: createChannelStatusUseCases({ channelRepo, chatSyncStateRepo, resolver }),
+      channelStatus: createChannelStatusUseCases({
+        channelRepo,
+        chatSyncStateRepo,
+        resolver,
+        telegramAccess: telegramAccessAdapter,
+      }),
       messageInspection: createMessageInspectionUseCases({ messageRepo, mediaAssetRepo }),
       seriesRepo,
       reviewQueue: createReviewQueueUseCases({ releaseRepo, releaseRevisionRepo, mediaAssetRepo, messageRepo, seriesRepo }),

@@ -56,3 +56,24 @@ describe("createTeleprotoTelegramAccessAdapter getMessages ordering", () => {
     });
   });
 });
+
+describe("createTeleprotoTelegramAccessAdapter getLatestMessageId", () => {
+  beforeEach(() => {
+    getMessages.mockReset();
+  });
+
+  it("reads one message in teleproto's default newest-first order", async () => {
+    getMessages.mockResolvedValue([{ id: 512, date: 1_700_000_100, text: "latest" }]);
+    const adapter = createTeleprotoTelegramAccessAdapter(CREDENTIALS);
+
+    expect(await adapter.getLatestMessageId("channel-1")).toBe(512);
+    expect(getMessages).toHaveBeenCalledWith("channel-1", { limit: 1 });
+  });
+
+  it("returns null for a chat with no messages", async () => {
+    getMessages.mockResolvedValue([]);
+    const adapter = createTeleprotoTelegramAccessAdapter(CREDENTIALS);
+
+    expect(await adapter.getLatestMessageId("channel-1")).toBeNull();
+  });
+});

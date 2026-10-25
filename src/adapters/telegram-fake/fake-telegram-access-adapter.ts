@@ -37,6 +37,12 @@ export function createFakeTelegramAccessAdapter(chats: FakeChatFixture[] = FAKE_
       return messages.slice(0, options.limit);
     },
 
+    async getLatestMessageId(chatId) {
+      const fixture = findChat(chatId);
+      if (fixture.messages.length === 0) return null;
+      return Math.max(...fixture.messages.map((message) => message.messageId));
+    },
+
     async getMessage(chatId, messageId) {
       const fixture = findChat(chatId);
       return fixture.messages.find((message) => message.messageId === messageId) ?? null;

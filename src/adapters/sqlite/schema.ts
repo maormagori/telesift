@@ -15,6 +15,8 @@ export interface ChannelsTable {
   identifier_type: ChannelIdentifier["type"];
   identifier_value: string;
   enabled: Generated<number>;
+  backfill_enabled: Generated<number>;
+  backfill_max_messages: number | null;
   created_at: number;
   updated_at: number;
 }
