@@ -1,0 +1,90 @@
+# Development overlay for docker-compose.yml. Start it through the stack scripts,
+# which derive a per-worktree Compose project name and keep file watching running:
+#
+#   npm run stack:up        # build, start, and watch this worktree's stack
+#   npm run stack:url       # print the Vite UI address
+#   npm run stack:logs      # follow service logs
+#   npm run stack:down      # stop it; `npm run stack:down -- -v` also removes its volumes
+#
+# Fake mode: telegram-service uses the fake adapter and receives no env file, so no
+# Telegram credentials are read or needed. extraction-worker uses the fake LLM unless
+# LLM_* is configured in an optional local .env. No .env is required at all.
+#
+# Host ports are left for Docker to assign so several worktrees can run at once. They
+# bind to loopback only, because the dev login below is committed and well known.
+
+x-dev-build: &dev-build
+  context: .
+  target: dev
+
+x-dev-watch: &dev-watch
+  watch:
+    - action: sync
+      path: ./src
+      target: /app/src
+    - action: rebuild
+      path: package.json
+    - action: rebuild
+      path: package-lock.json
+
+# Checks every second during startup instead of waiting for the first 30s interval.
+x-dev-healthcheck: &dev-healthcheck
+  start_period: 60s
+  start_interval: 1s
+
+services:
+  migrate:
+    build: *dev-build
+    env_file: !override [{ path: .env, required: false }]
+
+  telegram-service:
+    build: *dev-build
+    env_file: !reset []
+    environment:
+      TELEGRAM_ADAPTER: fake
+    healthcheck: *dev-healthcheck
+    develop: *dev-watch
+
+  ingestion-worker:
+    build: *dev-build
+    env_file: !override [{ path: .env, required: false }]
+    healthcheck: *dev-healthcheck
+    develop: *dev-watch
+
+  extraction-worker:
+    build: *dev-build
+    env_file: !override [{ path: .env, required: false }]
+    healthcheck: *dev-healthcheck
+    develop: *dev-watch
+
+  download-worker:
+    build: *dev-build
+    env_file: !override [{ path: .env, required: false }]
+    healthcheck: *dev-healthcheck
+    develop: *dev-watch
+
+  app:
+    build: *dev-build
+    env_file: !override [{ path: .env, required: false }]
+    environment:
+      # Dev-only login for fake mode: username "admin", password "telesift-dev".
+      # Never reuse this hash or secret in a real deployment.
+      APP_ADMIN_USERNAME: admin
+      APP_ADMIN_PASSWORD_HASH: scrypt$$633c1003f98f4c936377b8a0d5fd26d8$$3fbb8cc23c3f05322a7d21d517e103b3ef539f0fe457b0e15539a81f6f7ab71360a0ea6b8e7093b115c3b90fad9adce5a64a9728feb6951ace3e9bf40308c9ed
+      APP_SESSION_SECRET: telesift-dev-only-session-secret
+    ports: !override
+      - "127.0.0.1::${APP_PORT:-4000}"
+    healthcheck: *dev-healthcheck
+    develop: *dev-watch
+
+  app-web:
+    build: *dev-build
+    command: ["app-web"]
+    environment:
+      APP_WEB_API_PROXY_TARGET: http://app:${APP_PORT:-4000}
+    ports:
+      - "127.0.0.1::5173"
+    depends_on:
+      app:
+        condition: service_healthy
+    develop: *dev-watch

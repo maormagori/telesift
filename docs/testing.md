@@ -23,6 +23,8 @@ npm run build
 
 `npm test` runs Vitest once. `npm run build` compiles the TypeScript processes and builds the React application.
 
+To run the whole stack in Docker with fake Telegram and no credentials, use `npm run stack:up` and open the address `npm run stack:url` prints (dev login `admin` / `telesift-dev`). `npm run stack:down -- -v` removes the worktree's stack and data.
+
 ## Test layers
 
 ### Domain and application tests
