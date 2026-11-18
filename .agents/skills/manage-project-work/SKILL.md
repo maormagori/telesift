@@ -22,13 +22,44 @@ Resolve `<skill-directory>` to the directory containing this file. For Claude Co
 - Serialize pull operations. Several previously pulled issues may remain `In progress`.
 - Do not classify work by agent versus human.
 
-Run `setup` when the project or fields are missing. It is safe to repeat.
+Run `setup` when the project, fields, or labels are missing. It is safe to repeat.
+
+## Issue formats
+
+Every issue uses one of two body formats, matching the issue forms in `.github/ISSUE_TEMPLATE/`. Use `### ` headings in exactly this order, since that's how GitHub renders issue forms.
+
+**Discovery** (status `Discovery`): `Summary`, `Why it matters`, `Known context`, `Open questions`.
+
+**Task** (status `Backlog` or `Ready`):
+
+| Section | Contents |
+| --- | --- |
+| `Goal` | What the task delivers, in one or two sentences. |
+| `Context` | Doc sections to read first, relevant existing code, and related issues and pull requests. |
+| `Scope` | What to build, as bullets, including the decisions already made. |
+| `Expected paths` | The paths the task is expected to change, and any shared contract it may change: ports, SQLite schema or migrations, app-api or telegram-service routes. |
+| `Depends on` | Issues that must merge first, and anything needed from the maintainer. `None` if nothing. Link blocking issues as native GitHub dependencies too, because `next` and `pull` read those. |
+| `Done when` | Checkable criteria (`- [ ]`). Always includes "`npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass." |
+| `Out of scope` | What the task does not cover. |
+
+A sliced child issue starts its body with `Part of #<parent>.` above the sections.
+
+Labels:
+
+- `type:research`: delivers a sourced document in `docs/research/<issue>-<slug>.md`, and no product code.
+- `type:spike`: a throwaway experiment that delivers findings in `docs/spikes/<issue>-<slug>.md`. The experiment code is not merged.
+- `needs:user`: waiting on the maintainer for a review, input, or decision. `next` and `pull` skip these issues. Remove the label once the maintainer responds.
+
+Task format rules:
+
+1. Every new issue follows the format for its status. Captures use Discovery. Slices and issues moved to `Backlog` or `Ready` use Task.
+2. Before working on a pulled issue, check that its body follows the Task format. If it doesn't, rewrite it into the format and publish it with `gh issue edit --body-file` before starting the work. This rewrite doesn't need approval. It records the bounds the agent works within, so it may only restructure: keep every existing requirement and decision, add nothing beyond what the issue, its comments, and the repository already establish, and sanitize it like any public issue. Post a comment noting the body was reformatted. If a section can't be filled without new decisions, the issue isn't decision-complete; follow the rule below about recommending a return to Discovery.
 
 ## Capture discovery
 
 When the user says “save this to discovery” or equivalent:
 
-1. Draft a short public issue with `Summary`, `Why it matters`, `Known context`, and `Open questions`.
+1. Draft a short public issue in the Discovery format.
 2. Remove secrets, private paths, internal URLs, real Telegram identifiers/content, and personal configuration.
 3. Show the exact title, body, and priority. Do not publish yet.
 4. After approval, save the body in a temporary file and run `capture --title ... --body-file ... --priority ...`.
@@ -42,12 +73,13 @@ The helper runs gitleaks before publishing. Never bypass a failed scan. A privat
 - `Discovery` means material questions remain.
 - `Backlog` means the work is decision-complete but deliberately deferred.
 - `Ready` means scope and acceptance criteria are decision-complete and work may start.
-- Preview material body rewrites. An explicit move or priority instruction authorizes only that field change.
+- Moving an issue to `Backlog` or `Ready` requires a body in the Task format. Rewrite it first, with a preview.
+- Preview material body rewrites, except the format-only rewrite in Task format rule 2. An explicit move or priority instruction authorizes only that field change.
 - Use `move` and `priority` for field changes; use `sync` to repair a missing project item or partial update.
 
 ## Slice work
 
-Before publishing slices, present numbered tracer-bullet tickets with titles, deliverables, acceptance criteria, and blockers. Each slice must be independently verifiable and small enough for one fresh agent context.
+Before publishing slices, present numbered tracer-bullet tickets with titles and full Task-format bodies. Each slice must be independently verifiable and small enough for one fresh agent context.
 
 After approval, write a temporary JSON plan and run `slice --file ...`. The helper creates child issues, links native sub-issues and dependencies, inherits the parent priority, sets children to `Ready`, and leaves the tracking parent in `Backlog`. Never create horizontal layer-only tickets unless the work is a mechanical wide change.
 
@@ -57,9 +89,17 @@ Ticket slicing is adapted from Matt Pocock’s MIT-licensed `to-tickets` workflo
 
 - “Show the most urgent ticket” runs `next`; it is read-only.
 - “Pull the most urgent ticket” runs `pull`; the phrase authorizes assignment to `@me` and transition to `In progress`.
-- After pulling, read the issue and comments, inspect the repository, and begin the work in the same turn.
+- After pulling, read the issue and comments, and inspect the repository. Apply Task format rule 2, then begin the work in the same turn.
 - If no issue qualifies, report an empty Ready queue. Do not substitute Discovery or Backlog work.
 - If a pulled ticket is not actually decision-complete, stop and recommend returning it to Discovery; do not change it without approval.
+
+## While working
+
+- Work in a dedicated worktree on a branch named `<type>/<issue>-<slug>`, where `<type>` is the conventional commit type (for example `feat/50-channel-picker`).
+- Post questions, assumptions, and decisions as comments on the issue, not as body rewrites. Add `needs:user` when waiting on the maintainer.
+- Before changing a shared contract the issue doesn't name in `Expected paths`, ask in an issue comment, add `needs:user`, and wait. Other paths outside `Expected paths` are allowed when explained in the pull request.
+- Open the pull request with `.github/pull_request_template.md`. Agents never merge; the maintainer reviews and merges.
+- After the merge, record follow-up findings in GitHub: as a comment on an affected issue, or as a new Discovery capture.
 
 ## Finish or release
 

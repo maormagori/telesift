@@ -21,6 +21,12 @@ export const PRIORITIES = [
   { name: "P2 Normal", color: "YELLOW", description: "Default priority" },
   { name: "P3 Low", color: "GRAY", description: "Low priority" },
 ];
+export const NEEDS_USER_LABEL = "needs:user";
+export const LABELS = [
+  { name: "type:research", color: "1d76db", description: "Delivers a sourced document in docs/research/" },
+  { name: "type:spike", color: "c5def5", description: "Throwaway experiment; delivers findings in docs/spikes/" },
+  { name: NEEDS_USER_LABEL, color: "fbca04", description: "Waiting on the maintainer for a review, input, or decision" },
+];
 
 const SKILL_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const REPO_ROOT = path.resolve(SKILL_DIR, "../../..");
@@ -118,6 +124,7 @@ export function selectNext(items) {
     .filter((item) => item.state === "OPEN")
     .filter((item) => item.assignees.length === 0)
     .filter((item) => item.blockedBy === 0)
+    .filter((item) => !item.labels.includes(NEEDS_USER_LABEL))
     .sort((left, right) => {
       const priority = (ranks.get(left.priority) ?? PRIORITIES.length) - (ranks.get(right.priority) ?? PRIORITIES.length);
       return priority || left.number - right.number;
@@ -237,6 +244,10 @@ function ensureProjectSetup() {
     priority = fields.find((field) => field.name === "Priority");
   }
   updateSelectField(priority, PRIORITIES);
+
+  for (const { name, color, description } of LABELS) {
+    gh(["label", "create", name, "--repo", repo.nameWithOwner, "--color", color, "--description", description, "--force"]);
+  }
 
   fields = fieldList(project, repo.ownerLogin);
   details = projectDetails(project.id);
@@ -372,6 +383,7 @@ function normalizedItems(context) {
         priority: item.priority,
         assignees: item.assignees ?? [],
         blockedBy: Number(details.issue_dependencies_summary?.blocked_by ?? 0),
+        labels: (details.labels ?? []).map(({ name }) => name),
       };
     });
 }
@@ -428,7 +440,7 @@ async function main() {
   if (command === "help") return help();
   if (command === "setup") {
     const context = ensureProjectSetup();
-    return output({ project: context.project, statuses: STATUSES.map(({ name }) => name), priorities: PRIORITIES.map(({ name }) => name) });
+    return output({ project: context.project, statuses: STATUSES.map(({ name }) => name), priorities: PRIORITIES.map(({ name }) => name), labels: LABELS.map(({ name }) => name) });
   }
 
   const context = projectContext();
