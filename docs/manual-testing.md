@@ -177,14 +177,17 @@ make sense with a real Sonarr instance actually driving them.
   the shared settings in `.env` and the Telegram credentials in
   `.env.telegram` (see the `telegram-service` section, step 2).
 - A real or test Sonarr instance reachable from this host. If you don't have
-  one handy, `docker-compose.sonarr-test.yml` brings up a throwaway Sonarr
-  on the same compose network as TeleSift — merge it in with
-  `docker compose -f docker-compose.yml -f docker-compose.sonarr-test.yml up --build -d`.
-  It reaches TeleSift at `http://app:4000` by service name and shares the
-  same staging volume at the same container path, so steps 2-3 below need no
-  Remote Path Mapping; just set an absolute `DOWNLOAD_STAGING_DIRECTORY`
-  (e.g. `/app/data/staging`) in `.env` first, since the default relative
-  value is a poor path to hand Sonarr.
+  one handy, the shared stack in `docker-compose.shared.yml` includes a
+  throwaway Sonarr. Put the Telegram credentials in `.env.telegram` in the
+  operator configuration directory (`$TELESIFT_CONFIG_DIR`, default
+  `~/.config/telesift`), then run `npm run stack:shared:up -- --sonarr` from
+  your primary checkout and `npm run stack:up -- --real` in the checkout
+  under test. Sonarr's UI is at `http://127.0.0.1:8989`. It reaches that
+  checkout's app on the shared network at the container name `stack:up`
+  prints (`<project>-app-1`), so use that as `<host>` in steps 2-3. It
+  mounts the same staging volume at the same container path
+  (`/staging/<project>`) that the app reports, so no Remote Path Mapping is
+  needed.
 - `TORZNAB_API_KEY` set in `.env`, or explicitly left blank if TeleSift is
   only reachable on a trusted internal network — see `.env.example`'s
   comment on that var for both options.
