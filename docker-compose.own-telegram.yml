@@ -1,0 +1,49 @@
+# Own-telegram overlay for docker-compose.yml, docker-compose.dev.yml, and
+# docker-compose.real.yml, applied by `npm run stack:up -- --own-telegram`. It is for
+# branches that change telegram-service: this worktree's telegram-service replaces the
+# shared one from docker-compose.shared.yml, under the same container name and on the same
+# network, so this worktree and every real-mode worktree use it. `npm run stack:shared:restore`
+# removes it and starts the shared one again.
+#
+# It runs this worktree's code with the dev target and file watching, and receives the
+# operator configuration exactly as the shared telegram-service does: a required
+# .env.telegram and an optional non-secret .env from $TELESIFT_CONFIG_DIR. No other
+# container receives them. The adapter is the operator configuration's TELEGRAM_ADAPTER,
+# which defaults to teleproto, the real one.
+#
+# It mounts the shared stack's lock volume, so the singleton lock covers both versions.
+
+services:
+  telegram-service:
+    profiles: !reset []
+    container_name: telesift-telegram-service
+    env_file: !override
+      - path: ${TELESIFT_CONFIG_DIR:-${XDG_CONFIG_HOME:-${HOME}/.config}/telesift}/.env
+        required: false
+      - path: ${TELESIFT_CONFIG_DIR:-${XDG_CONFIG_HOME:-${HOME}/.config}/telesift}/.env.telegram
+    # Drops docker-compose.dev.yml's TELEGRAM_ADAPTER=fake.
+    environment: !reset {}
+    volumes: !override
+      - telegram-data:/app/data
+    networks: [shared]
+    depends_on: !reset {}
+
+  ingestion-worker:
+    depends_on:
+      telegram-service:
+        condition: service_healthy
+
+  download-worker:
+    depends_on:
+      telegram-service:
+        condition: service_healthy
+
+  app:
+    depends_on:
+      telegram-service:
+        condition: service_healthy
+
+volumes:
+  telegram-data:
+    name: telesift-shared_telegram-data
+    external: true
