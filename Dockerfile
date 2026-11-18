@@ -10,6 +10,14 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
+# Development image for docker-compose.dev.yml: full dev dependencies, built
+# inside Linux because better-sqlite3 compiles natively. Processes run from
+# src/ under `tsx watch`; dist/ is kept only for the worker healthcheck script.
+FROM build AS dev
+COPY docker/dev-entrypoint.sh docker/healthcheck.sh docker/healthcheck-worker.mjs ./docker/
+RUN chmod +x docker/dev-entrypoint.sh docker/healthcheck.sh
+ENTRYPOINT ["docker/dev-entrypoint.sh"]
+
 FROM deps AS prod-deps
 RUN npm prune --omit=dev
 
