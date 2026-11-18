@@ -2,7 +2,7 @@
 // Runs this worktree's isolated development stack (docker-compose.yml plus
 // docker-compose.dev.yml) under a Compose project named after the worktree.
 //
-//   node scripts/stack.mjs up [--real] [compose up args]
+//   node scripts/stack.mjs up [--real|--own-telegram] [compose up args]
 //                                                    build, start, wait for health, start watching
 //   node scripts/stack.mjs down [compose down args]  stop watching and remove containers (-v: volumes too)
 //   node scripts/stack.mjs logs [compose logs args]  follow service logs
@@ -11,10 +11,16 @@
 //                                                    build and start the host-wide shared stack
 //   node scripts/stack.mjs shared-down [compose down args]
 //                                                    stop the shared stack (-v: volumes too)
+//   node scripts/stack.mjs shared-restore [--sonarr] [compose up args]
+//                                                    remove a worktree's own telegram-service and
+//                                                    start the shared one again
 //
 // Fake mode (the default) runs the worktree's own telegram-service with the fake adapter.
 // `--real` adds docker-compose.real.yml: the worktree runs no telegram-service and uses
 // the shared one from docker-compose.shared.yml, which must already be running.
+// `--own-telegram` is real mode plus docker-compose.own-telegram.yml: it removes the shared
+// telegram-service and runs this worktree's in its place, under the same container name.
+// `shared-restore` undoes that from any checkout.
 //
 // `up` returns once the stack is healthy. File watching keeps running in a detached
 // `docker compose watch --no-up` process whose PID and output live in this worktree's
@@ -49,7 +55,7 @@ function projectName() {
   return `telesift-${base}-${hash}`;
 }
 
-function composeArgs({ real = false } = {}) {
+function composeArgs({ real = false, ownTelegram = false } = {}) {
   const args = [
     "compose",
     "--project-name",
@@ -61,7 +67,8 @@ function composeArgs({ real = false } = {}) {
     "-f",
     path.join(worktreeRoot, "docker-compose.dev.yml"),
   ];
-  if (real) args.push("-f", path.join(worktreeRoot, "docker-compose.real.yml"));
+  if (real || ownTelegram) args.push("-f", path.join(worktreeRoot, "docker-compose.real.yml"));
+  if (ownTelegram) args.push("-f", path.join(worktreeRoot, "docker-compose.own-telegram.yml"));
   return args;
 }
 
@@ -119,18 +126,45 @@ function sharedTelegramRunning() {
   return result.status === 0 && result.stdout.trim() === "true";
 }
 
+// The Compose project that owns the container named telesift-telegram-service: the shared
+// stack, a worktree running --own-telegram, or undefined when there is none.
+function telegramHolder() {
+  const result = spawnSync(
+    "docker",
+    ["container", "inspect", "--format", '{{index .Config.Labels "com.docker.compose.project"}}', SHARED_TELEGRAM_CONTAINER],
+    { encoding: "utf8" },
+  );
+  return result.status === 0 ? result.stdout.trim() : undefined;
+}
+
 function up(extraArgs) {
-  const real = extraArgs.includes("--real");
-  const composeUpArgs = extraArgs.filter((arg) => arg !== "--real");
-  if (real && !sharedTelegramRunning()) {
+  const ownTelegram = extraArgs.includes("--own-telegram");
+  const real = ownTelegram || extraArgs.includes("--real");
+  const composeUpArgs = extraArgs.filter((arg) => arg !== "--real" && arg !== "--own-telegram");
+  const options = { real, ownTelegram };
+  if (ownTelegram) {
+    const holder = telegramHolder();
+    if (holder !== undefined && holder !== SHARED_PROJECT && holder !== projectName()) {
+      console.error(`${SHARED_TELEGRAM_CONTAINER} is already held by the worktree stack ${holder}.`);
+      console.error("Run `npm run stack:shared:restore` to remove it and start the shared one again, then retry.");
+      process.exit(1);
+    }
+    // Docker refuses a second container with the fixed name, so the shared one goes first.
+    if (holder === SHARED_PROJECT) run([...sharedComposeArgs(), "rm", "--stop", "--force", "telegram-service"]);
+  } else if (real && !sharedTelegramRunning()) {
     console.error(`Real mode uses the shared ${SHARED_TELEGRAM_CONTAINER}, which is not running.`);
     console.error("Start it from your primary checkout with `npm run stack:shared:up`, then retry.");
     process.exit(1);
   }
   stopWatcher();
-  compose(["up", "--build", "--detach", "--wait", ...composeUpArgs], { real });
-  startWatcher({ real });
-  console.log(`Stack ${projectName()} is up in ${real ? "real" : "fake"} mode. Watching src/ for changes (log: ${watchLogFile}).`);
+  compose(["up", "--build", "--detach", "--wait", ...composeUpArgs], options);
+  startWatcher(options);
+  const mode = ownTelegram ? "own-telegram" : real ? "real" : "fake";
+  console.log(`Stack ${projectName()} is up in ${mode} mode. Watching src/ for changes (log: ${watchLogFile}).`);
+  if (ownTelegram) {
+    console.log(`This worktree's telegram-service now runs as ${SHARED_TELEGRAM_CONTAINER} for every real-mode worktree.`);
+    console.log("Run `npm run stack:shared:restore` to bring back the shared one.");
+  }
   if (real) {
     // Every real-mode worktree's app answers to the "app" alias on the shared network, so
     // the shared test Sonarr addresses this one by its container name.
@@ -140,8 +174,13 @@ function up(extraArgs) {
 }
 
 function down(extraArgs) {
+  const heldTelegram = telegramHolder() === projectName();
   stopWatcher();
   compose(["down", ...extraArgs]);
+  if (heldTelegram) {
+    console.log(`Removed this worktree's ${SHARED_TELEGRAM_CONTAINER}; no telegram-service is running now.`);
+    console.log("Run `npm run stack:shared:restore` to start the shared one again.");
+  }
 }
 
 function logs(extraArgs) {
@@ -170,7 +209,29 @@ function sharedDown(extraArgs) {
   run([...sharedComposeArgs(), "down", ...extraArgs]);
 }
 
-const commands = { up, down, logs, url, "shared-up": sharedUp, "shared-down": sharedDown };
+function sharedRestore(extraArgs) {
+  const holder = telegramHolder();
+  if (holder !== undefined && holder !== SHARED_PROJECT) {
+    // A graceful stop releases the singleton lock; a forced removal would leave it fresh
+    // and the shared telegram-service would refuse to start.
+    run(["container", "stop", SHARED_TELEGRAM_CONTAINER]);
+    run(["container", "rm", SHARED_TELEGRAM_CONTAINER]);
+    console.log(`Removed the ${SHARED_TELEGRAM_CONTAINER} held by the worktree stack ${holder}.`);
+    console.log("Re-run `npm run stack:up -- --real` in that worktree if it should keep running.");
+  }
+  console.log("Starting the shared telegram-service from this checkout, as `npm run stack:shared:up` does.");
+  sharedUp(extraArgs);
+}
+
+const commands = {
+  up,
+  down,
+  logs,
+  url,
+  "shared-up": sharedUp,
+  "shared-down": sharedDown,
+  "shared-restore": sharedRestore,
+};
 const [command, ...extraArgs] = process.argv.slice(2);
 
 if (!Object.hasOwn(commands, command)) {

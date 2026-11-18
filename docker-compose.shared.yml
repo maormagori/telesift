@@ -16,6 +16,9 @@
 # them.
 #
 # The fixed container name makes Docker refuse a second real telegram-service on this host.
+# A worktree that changes telegram-service can take that name over with
+# `npm run stack:up -- --own-telegram` (docker-compose.own-telegram.yml), which removes this
+# one first; `npm run stack:shared:restore` puts this one back.
 
 name: telesift-shared
 

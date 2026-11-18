@@ -23,6 +23,7 @@
     "stack:url": "node scripts/stack.mjs url",
     "stack:shared:up": "node scripts/stack.mjs shared-up",
     "stack:shared:down": "node scripts/stack.mjs shared-down",
+    "stack:shared:restore": "node scripts/stack.mjs shared-restore",
     "start:telegram-service": "node dist/processes/telegram-service/main.js",
     "start:ingestion-worker": "node dist/processes/ingestion-worker/main.js",
     "start:extraction-worker": "node dist/processes/extraction-worker/main.js",
