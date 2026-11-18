@@ -45,7 +45,7 @@ docker logs telesift-telegram-service
 container on the shared network:
 
 ```
-tg() { path=$1; shift; docker run --rm --network telesift-shared curlimages/curl:8.11.1 -sS "$@" "http://telesift-telegram-service:4001$path"; }
+tg() { local p=$1; shift; docker run --rm --network telesift-shared curlimages/curl:8.11.1 -sS "$@" "http://telesift-telegram-service:4001$p"; }
 tg /status
 tg /chats
 ```
