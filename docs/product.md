@@ -106,7 +106,7 @@ TeleSift downloads into a staging directory visible to both services. Sonarr per
 
 - Telegram API credentials and the reusable session are provisioned through environment variables.
 - Only `telegram-service` code reads or uses Telegram credentials and owns the live client.
-- The reference Compose deployment currently loads one shared `.env` into every container, so secret delivery is broader than the intended process boundary.
+- The reference Compose deployment delivers Telegram credentials only to the `telegram-service` container, through a separate `.env.telegram` file. Every container still receives the shared `.env`, so the other secrets it holds (`LLM_API_KEY`, the administrator password hash and session secret, and `TORZNAB_API_KEY`) reach every container.
 - The UI uses one environment-provisioned administrator credential and a signed session cookie.
 - Torznab supports an optional API key.
 - The qBittorrent-compatible login endpoint currently accepts every login; external-client authentication remains unfinished.

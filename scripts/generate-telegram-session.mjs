@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // One-off operator tool: logs in interactively (phone/code/2FA) and prints a
-// TELEGRAM_SESSION string for .env. Not part of telegram-service itself —
-// v1 deliberately keeps login out of the running service (see AGENTS.md,
-// Security and Secrets). Run it, paste the printed string into your local
-// .env, then throw this process away. Never commit the printed string.
+// TELEGRAM_SESSION string. Not part of telegram-service itself — v1
+// deliberately keeps login out of the running service. Run it, paste the
+// printed string into your local .env (native `npm run dev:*`) or
+// .env.telegram (`docker compose`), then throw this process away. Never
+// commit the printed string.
 
 import { createInterface } from "node:readline/promises";
 import { TelegramClient } from "teleproto";
@@ -68,7 +69,8 @@ async function main() {
   await client.disconnect();
   rl.close();
 
-  console.log("\nLogin succeeded. Put this in your local .env as TELEGRAM_SESSION:\n");
+  console.log("\nLogin succeeded. Set this as TELEGRAM_SESSION in your local .env for `npm run dev:*`,");
+  console.log("or in .env.telegram (not .env) for `docker compose`:\n");
   console.log(session);
   console.log("\nThis string grants full access to the Telegram account. Never commit it or share it.");
 }

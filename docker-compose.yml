@@ -10,7 +10,11 @@ services:
   telegram-service:
     build: .
     command: ["telegram-service"]
-    env_file: .env
+    # Only this service receives the Telegram credentials (.env.telegram).
+    # Every other service gets only the shared .env.
+    env_file:
+      - .env
+      - .env.telegram
     volumes:
       - data:/app/data
     depends_on:
