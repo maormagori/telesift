@@ -1,0 +1,72 @@
+# Host-wide shared stack: the only real telegram-service on this host, plus an optional
+# test Sonarr. Worktree stacks started with `npm run stack:up -- --real` join its network
+# and use this telegram-service instead of running their own. Start it through the scripts:
+#
+#   npm run stack:shared:up                 # build and start telegram-service
+#   npm run stack:shared:up -- --sonarr     # also start the test Sonarr
+#   npm run stack:shared:down               # stop it; `-- -v` also removes its volumes
+#
+# Run these from your primary checkout. `stack:shared:up` builds telegram-service from the
+# checkout that runs it, and re-running it from another checkout replaces the running
+# service with that checkout's code.
+#
+# Operator configuration lives outside every checkout, in $TELESIFT_CONFIG_DIR (default
+# ${XDG_CONFIG_HOME:-~/.config}/telesift): a required .env.telegram, in the format of
+# .env.telegram.example, and an optional non-secret .env. Only telegram-service receives
+# them.
+#
+# The fixed container name makes Docker refuse a second real telegram-service on this host.
+
+name: telesift-shared
+
+services:
+  telegram-service:
+    build: .
+    command: ["telegram-service"]
+    container_name: telesift-telegram-service
+    env_file:
+      - path: ${TELESIFT_CONFIG_DIR:-${XDG_CONFIG_HOME:-${HOME}/.config}/telesift}/.env
+        required: false
+      - path: ${TELESIFT_CONFIG_DIR:-${XDG_CONFIG_HOME:-${HOME}/.config}/telesift}/.env.telegram
+    volumes:
+      # Holds the singleton lock file.
+      - telegram-data:/app/data
+    healthcheck:
+      test: ["CMD", "docker/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # Throwaway Sonarr for docs/manual-testing.md's "Sonarr" section. It reaches a real-mode
+  # worktree's app over the shared network, and mounts the shared staging volume at the
+  # same container path as that worktree's app and download-worker, so their reported
+  # paths need no Remote Path Mapping.
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    profiles: [sonarr]
+    environment:
+      # Root, purely to avoid permission mismatches against files download-worker
+      # writes as root in the shared volume. Fine for a throwaway test instance;
+      # do not run a real Sonarr deployment this way.
+      - PUID=0
+      - PGID=0
+      - TZ=Etc/UTC
+    volumes:
+      - sonarr-config:/config
+      - staging:/staging
+      - sonarr-tv:/tv
+    ports:
+      - "127.0.0.1:8989:8989"
+
+networks:
+  default:
+    name: telesift-shared
+
+volumes:
+  telegram-data: {}
+  # Real-mode worktrees mount this at /staging and each write to /staging/<project name>.
+  staging:
+    name: telesift-shared-staging
+  sonarr-config: {}
+  sonarr-tv: {}
