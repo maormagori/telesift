@@ -190,7 +190,8 @@ These are compatibility surfaces, not complete implementations of Telegram, Torz
 ## Security boundaries and known gaps
 
 - The Telegram session, API ID, and API hash are operator-provisioned environment variables. `telegram-service` is the only code that reads them and the only role that creates a Telegram client.
-- The reference Compose file currently supplies the shared `.env` to every service. Although other processes do not read Telegram credentials, container-level secret delivery does not yet match the intended boundary.
+- The reference Compose file supplies the Telegram credentials from `.env.telegram` to `telegram-service` only, and the shared `.env` to every service. Leaving the Telegram lines in `.env` would deliver them to every container again. The other secrets in `.env` (`LLM_API_KEY`, `APP_ADMIN_PASSWORD_HASH`, `APP_SESSION_SECRET`, `TORZNAB_API_KEY`) still reach every container.
+- The native `npm run dev:*` path loads one local `.env` into each process, Telegram credentials included.
 - `telegram-service` has no published host port in the reference Compose deployment, but its HTTP contract has no independent authentication.
 - The operator UI uses one configured administrator account and server-side sessions.
 - Torznab API-key enforcement is optional.

@@ -42,7 +42,6 @@ The principal tracked blockers are [#51](https://github.com/maormagori/telesift/
 - Let operators change a channel's backfill policy after adding it, trigger syncs, and understand progress and errors.
 - Estimate expensive backfill and extraction work before it starts.
 - Add authentication appropriate for every externally consumed endpoint; remove the permissive qBittorrent login placeholder.
-- Deliver Telegram secrets only to the process that owns the Telegram connection.
 
 ### Review and diagnosis
 

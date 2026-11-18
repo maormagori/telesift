@@ -25,7 +25,15 @@ Telegram's login code and, if you have two-step verification enabled, your 2FA
 password. On success it prints a session string — never anything else does.
 
 Copy that string into `.env` as `TELEGRAM_SESSION`, alongside `TELEGRAM_API_ID`
-and `TELEGRAM_API_HASH` from step 1. `.env` is gitignored; never commit it.
+and `TELEGRAM_API_HASH` from step 1. The native `npm run dev:*` processes read
+only `.env`.
+
+Under `docker compose`, put those three lines in `.env.telegram` instead (copy
+`.env.telegram.example`), and keep them out of `.env`. Compose delivers
+`.env.telegram` only to `telegram-service`, but delivers `.env` to every
+container, so leaving them in `.env` would hand them to every container again.
+
+`.env` and `.env.telegram` are gitignored; never commit them.
 
 ### 3. Start the service
 
@@ -165,7 +173,9 @@ make sense with a real Sonarr instance actually driving them.
   npm run dev:download-worker
   ```
 
-  or `docker compose up`, using `docker-compose.yml` at the repo root.
+  or `docker compose up`, using `docker-compose.yml` at the repo root, with
+  the shared settings in `.env` and the Telegram credentials in
+  `.env.telegram` (see the `telegram-service` section, step 2).
 - A real or test Sonarr instance reachable from this host. If you don't have
   one handy, `docker-compose.sonarr-test.yml` brings up a throwaway Sonarr
   on the same compose network as TeleSift — merge it in with
