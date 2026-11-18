@@ -70,7 +70,9 @@ real chat content, not fixtures.
 ### 4. Confirm the singleton lock
 
 With the shared stack still running, start a second `telegram-service` on
-the shared lock volume:
+the shared lock volume. Run it from the primary checkout, in a shell where
+`TELESIFT_CONFIG_DIR` is set if you use a non-default configuration
+directory:
 
 ```
 docker compose -f docker-compose.shared.yml run --rm telegram-service

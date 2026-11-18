@@ -79,7 +79,9 @@ Only `telegram-service` receives these files. To create them:
    chmod 600 ~/.config/telesift/.env.telegram
    ```
 
-   Set `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, and `TELEGRAM_SESSION` in that file. If `TELESIFT_CONFIG_DIR` is set, use that directory instead.
+   Set `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, and `TELEGRAM_SESSION` in that file.
+
+To keep the configuration somewhere else, create the files there and export `TELESIFT_CONFIG_DIR` in your shell profile. Every command that starts a `telegram-service` with the operator configuration (`stack:shared:up`, `stack:shared:restore`, and `stack:up -- --own-telegram`) reads it, and one run without it falls back to the default directory.
 
 Keep Telegram credentials out of every checkout's `.env` when using the stack. In fake and real mode, a checkout's `.env` reaches that checkout's containers, so credentials there would reach them all. The credentials belong only in the operator configuration directory's `.env.telegram`.
 
@@ -102,7 +104,7 @@ npm run stack:url
 
 Log in with the development login. The checkout has its own empty database, so add channels from the Channels screen. Every real-mode checkout shares the one Telegram connection but keeps its own data.
 
-A plain `npm run stack:up` switches the checkout back to fake mode, and `npm run stack:up -- --real` switches it to real mode again.
+To switch a checkout between modes, run `npm run stack:down` first, then `stack:up` in the other mode. Without it, switching from fake to real mode leaves the checkout's fake `telegram-service` container running, unused.
 
 ## Changing telegram-service with --own-telegram
 
