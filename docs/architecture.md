@@ -53,6 +53,8 @@ Short-lived entrypoints:
 
 The reference Compose deployment runs one instance of every long-running role on one host. Worker and Telegram singleton locks use heartbeat files. SQLite and the staging directory are shared filesystem resources.
 
+The [development stack](development.md) adds overlays to the same Compose file. Each checkout runs its own Compose project with its own database. A host-wide shared project runs the only real `telegram-service` under a fixed container name, so Docker refuses a second one, and keeps its lock file on its own volume. Real-mode checkouts run no `telegram-service` and call the shared one over the shared project's network.
+
 ## Code boundaries
 
 ```text
@@ -191,6 +193,7 @@ These are compatibility surfaces, not complete implementations of Telegram, Torz
 
 - The Telegram session, API ID, and API hash are operator-provisioned environment variables. `telegram-service` is the only code that reads them and the only role that creates a Telegram client.
 - The reference Compose file supplies the Telegram credentials from `.env.telegram` to `telegram-service` only, and the shared `.env` to every service. Leaving the Telegram lines in `.env` would deliver them to every container again. The other secrets in `.env` (`LLM_API_KEY`, `APP_ADMIN_PASSWORD_HASH`, `APP_SESSION_SECRET`, `TORZNAB_API_KEY`) still reach every container.
+- In the development stack, the operator configuration directory's `.env.telegram` reaches only the shared or owned `telegram-service`, and fake mode reads no Telegram credentials. A checkout's own `.env` still reaches every container in that checkout's stack, so it must not hold Telegram credentials.
 - The native `npm run dev:*` path loads one local `.env` into each process, Telegram credentials included.
 - `telegram-service` has no published host port in the reference Compose deployment, but its HTTP contract has no independent authentication.
 - The operator UI uses one configured administrator account and server-side sessions.

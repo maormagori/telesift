@@ -4,51 +4,50 @@ Automated tests never touch real Telegram (see each process's test files). This
 document covers the manual steps that do, using real credentials.
 
 See [Testing](testing.md) for the automated test layers and required commands.
+Every check here runs on the standard development stack, in real mode; see
+[Development](development.md) for its commands and modes.
 
 ## telegram-service
 
 Requires a real Telegram account. Nothing here is automatable in a public repo.
 
-### 1. Get API credentials
+### 1. Configure the credentials
 
-Create an app at https://my.telegram.org/apps. This gives you `api_id` and
-`api_hash`. Platform/URL fields are just metadata; they don't restrict the API.
+Follow [Development: first-time operator configuration](development.md#first-time-operator-configuration).
+It covers creating the API credentials, `npm run generate-telegram-session`,
+and the operator configuration directory's `.env.telegram`. Keep the
+credentials out of every checkout's `.env`.
 
-### 2. Generate a session string
+### 2. Start the service
 
-```
-npm run generate-telegram-session
-```
-
-Prompts for `api_id`, `api_hash`, and your phone number, then walks you through
-Telegram's login code and, if you have two-step verification enabled, your 2FA
-password. On success it prints a session string — never anything else does.
-
-Copy that string into `.env` as `TELEGRAM_SESSION`, alongside `TELEGRAM_API_ID`
-and `TELEGRAM_API_HASH` from step 1. The native `npm run dev:*` processes read
-only `.env`.
-
-Under `docker compose`, put those three lines in `.env.telegram` instead (copy
-`.env.telegram.example`), and keep them out of `.env`. Compose delivers
-`.env.telegram` only to `telegram-service`, but delivers `.env` to every
-container, so leaving them in `.env` would hand them to every container again.
-
-`.env` and `.env.telegram` are gitignored; never commit them.
-
-### 3. Start the service
+Make sure no other `telegram-service` uses the same Telegram session, then
+start the shared stack from your primary checkout:
 
 ```
-npm run dev:telegram-service
+npm run stack:shared:up
 ```
+
+To check a branch's changes to `telegram-service`, start the shared stack,
+then run `npm run stack:up -- --own-telegram` in that branch's checkout, and
+`npm run stack:shared:restore` from the primary checkout when done; see
+[Development](development.md#changing-telegram-service-with---own-telegram).
 
 Confirm the startup log shows `telegram-service listening` with
-`adapter: teleproto`.
-
-### 4. Exercise every endpoint
+`adapter: teleproto`:
 
 ```
-curl localhost:4001/status
-curl localhost:4001/chats
+docker logs telesift-telegram-service
+```
+
+### 3. Exercise every endpoint
+
+`telegram-service` has no published host port. Call it from a throwaway
+container on the shared network:
+
+```
+tg() { path=$1; shift; docker run --rm --network telesift-shared curlimages/curl:8.11.1 -sS "$@" "http://telesift-telegram-service:4001$path"; }
+tg /status
+tg /chats
 ```
 
 Pick a real `chatId` from the `/chats` response (use the `id` field as-is —
@@ -56,22 +55,29 @@ it's the raw id `telegram-service` returns, not the `-100`-prefixed id some
 Telegram clients display), then:
 
 ```
-curl "localhost:4001/chats/<chatId>/messages?limit=20"
-curl "localhost:4001/chats/<chatId>/latest-message-id"
-curl "localhost:4001/chats/<chatId>/photo" -o photo.jpg
-curl "localhost:4001/chats/<chatId>/messages/<messageId>"
-curl "localhost:4001/chats/<chatId>/messages/<messageId>/media" -o out.bin
+tg "/chats/<chatId>/messages?limit=20"
+tg "/chats/<chatId>/latest-message-id"
+tg "/chats/<chatId>/photo" > photo.jpg
+tg "/chats/<chatId>/messages/<messageId>"
+tg "/chats/<chatId>/messages/<messageId>/media" -D /dev/stderr > out.bin
 ```
 
-Confirm `out.bin`'s size matches the response's `Content-Length` and that it
-plays/opens correctly, and that `photo.jpg` is the chat's profile photo (a chat
-without one returns 404). Delete both — they're real chat content, not fixtures.
+Confirm `out.bin`'s size matches the `Content-Length` header printed for the
+last request and that it plays/opens correctly, and that `photo.jpg` is the
+chat's profile photo (a chat without one returns 404). Delete both — they're
+real chat content, not fixtures.
 
-### 5. Confirm the singleton lock
+### 4. Confirm the singleton lock
 
-With step 3's process still running, run `npm run dev:telegram-service` again
-in a second terminal. It must refuse to start and exit, logging that the lock
-is already held.
+With the shared stack still running, start a second `telegram-service` on
+the shared lock volume:
+
+```
+docker compose -f docker-compose.shared.yml run --rm telegram-service
+```
+
+It must refuse to start and exit, logging that the lock is already held. It
+takes the lock before creating a Telegram client, so it never connects.
 
 ## app
 
@@ -80,34 +86,32 @@ channel add can actually resolve). Automated tests cover the app-api protocol
 against fake adapters (`src/protocols/app-api/server.test.ts`); this covers
 the parts that only make sense against a real account and a real browser.
 
-### 1. Provision an admin credential
+### 1. Start the stack
+
+In the checkout under test:
 
 ```
-npm run hash-admin-password
+npm run stack:up -- --real
+npm run stack:url
 ```
 
-Prompts for a password twice and prints a `scrypt$<salt>$<hash>` string. Put
-it in `.env` as `APP_ADMIN_PASSWORD_HASH`, along with `APP_ADMIN_USERNAME` and
-a random `APP_SESSION_SECRET`. Never put a plaintext password in `.env`.
+This runs `app`, the Vite UI server, and all three workers against the shared
+`telegram-service`. Open the printed URL in a browser.
 
-Running under `docker compose` instead of `npm run dev:app`? Double every
-literal `$` as `$$` in the hash (`scrypt$$<salt>$$<hash>`) — Compose
-interpolates `env_file` content, so a single `$` is read as the start of a
-variable reference and silently dropped.
+### 2. Admin credential
 
-### 2. Start the app
-
-```
-npm run dev:app
-npm run dev:app-web
-```
-
-`dev:app` is the Express/API process; `dev:app-web` is the Vite dev server,
-proxying `/api` to it. Open the Vite dev server's printed URL in a browser.
+The stack uses the committed development login, `admin` / `telesift-dev`.
+A deployment provisions its own instead: `npm run hash-admin-password`
+prompts for a password twice and prints a `scrypt$<salt>$<hash>` string for
+`APP_ADMIN_PASSWORD_HASH` in `.env`, along with `APP_ADMIN_USERNAME` and a
+random `APP_SESSION_SECRET`. Never put a plaintext password in `.env`. Under
+`docker compose`, double every literal `$` as `$$` in the hash
+(`scrypt$$<salt>$$<hash>`) — Compose interpolates `env_file` content, so a
+single `$` is read as the start of a variable reference and silently dropped.
 
 ### 3. Log in and exercise the UI
 
-- Log in with the credential from step 1. Confirm a bad password is rejected
+- Log in with the credential from step 2. Confirm a bad password is rejected
   and the session persists across a page reload.
 - On the Channels screen, confirm the "Add a channel" list
   shows the account's channels and groups but no private chats, each with its
@@ -125,7 +129,7 @@ proxying `/api` to it. Open the Vite dev server's printed URL in a browser.
   backfill unchecked.
 - Add an identifier that isn't visible to the account. Confirm the add still
   succeeds but is reported unresolved, and doesn't block the request.
-- With `ingestion-worker` also running (`npm run dev:ingestion-worker`),
+- With `ingestion-worker` running (the stack starts it),
   confirm the channel's sync progress (backfill/caught-up state, or an error)
   updates on the Channels screen as it syncs. Open the limited channel's
   message view and confirm it holds only its newest messages (up to the count
@@ -144,7 +148,7 @@ proxying `/api` to it. Open the Vite dev server's printed URL in a browser.
   confirm the original Telegram caption/media renders next to the extracted
   fields, edit a field and save, then approve it and confirm it drops out of
   the queue and the nav badge updates.
-- With `download-worker` running and a download in flight, confirm the
+- With a download in flight, confirm the
   Downloads screen's progress/state track the real transfer, and that
   pause/resume/cancel/retry actually change its `desiredState`.
 - Log out. Confirm the session cookie is cleared and protected screens bounce
@@ -162,35 +166,26 @@ make sense with a real Sonarr instance actually driving them.
 
 - `telegram-service` running against a real Telegram account — see the
   `telegram-service` section above; nothing here repeats those steps.
-- `app` and all three workers (`ingestion-worker`, `extraction-worker`,
-  `download-worker`) running. Either the local-dev path:
+- The test Sonarr from the shared stack, or another Sonarr instance that can
+  reach the checkout's app. To use the test Sonarr, start the shared stack
+  with it from your primary checkout, then the checkout under test in real
+  mode:
 
   ```
-  npm run dev:app
-  npm run dev:app-web
-  npm run dev:ingestion-worker
-  npm run dev:extraction-worker
-  npm run dev:download-worker
+  npm run stack:shared:up -- --sonarr
+  npm run stack:up -- --real
   ```
 
-  or `docker compose up`, using `docker-compose.yml` at the repo root, with
-  the shared settings in `.env` and the Telegram credentials in
-  `.env.telegram` (see the `telegram-service` section, step 2).
-- A real or test Sonarr instance reachable from this host. If you don't have
-  one handy, the shared stack in `docker-compose.shared.yml` includes a
-  throwaway Sonarr. Put the Telegram credentials in `.env.telegram` in the
-  operator configuration directory (`$TELESIFT_CONFIG_DIR`, default
-  `~/.config/telesift`), then run `npm run stack:shared:up -- --sonarr` from
-  your primary checkout and `npm run stack:up -- --real` in the checkout
-  under test. Sonarr's UI is at `http://127.0.0.1:8989`. It reaches that
-  checkout's app on the shared network at the container name `stack:up`
-  prints (`<project>-app-1`), so use that as `<host>` in steps 2-3. It
-  mounts the same staging volume at the same container path
-  (`/staging/<project>`) that the app reports, so no Remote Path Mapping is
-  needed.
-- `TORZNAB_API_KEY` set in `.env`, or explicitly left blank if TeleSift is
-  only reachable on a trusted internal network — see `.env.example`'s
-  comment on that var for both options.
+  Sonarr's UI is at `http://127.0.0.1:8989`. It reaches the checkout's app on
+  the shared network at the container name `stack:up` prints
+  (`<project>-app-1`), so use that as `<host>` in steps 2-3. It mounts the
+  same staging volume at the same container path (`/staging/<project>`) that
+  the app reports, so no Remote Path Mapping is needed. See
+  [Development](development.md#sonarr-testing-with-the-shared-profile).
+- `TORZNAB_API_KEY` set in the checkout's `.env`, or explicitly left unset if
+  TeleSift is only reachable on a trusted internal network — see
+  `.env.example`'s comment on that var for both options. Run
+  `npm run stack:up -- --real` again after changing `.env`.
 
 ### 2. Add TeleSift as a Torznab indexer
 

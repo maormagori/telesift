@@ -34,7 +34,9 @@ npm run lint
 npm run build
 ```
 
-The automated suite uses synthetic data and does not need Telegram credentials, a real LLM, or Sonarr. See [Testing](docs/testing.md) for the test layers and optional runtime setup.
+The automated suite uses synthetic data and does not need Telegram credentials, a real LLM, or Sonarr. See [Testing](docs/testing.md) for the test layers.
+
+To run TeleSift locally, use the Docker development stack in [Development](docs/development.md). `npm run stack:up` starts it in fake mode, with no credentials needed.
 
 Do not commit `.env`, database files, generated sessions, downloaded media, logs containing private data, or analysis based on real messages.
 
@@ -61,7 +63,7 @@ npm test
 npm run build
 ```
 
-Run relevant manual checks when the behavior crosses a real Telegram, Sonarr, filesystem, or browser boundary. Never publish the credentials, source content, or output files used for those checks.
+Run relevant manual checks on the [development stack](docs/development.md) when the behavior crosses a real Telegram, Sonarr, filesystem, or browser boundary. Never publish the credentials, source content, or output files used for those checks.
 
 Inspect the complete diff and staged files before committing. The tracked hooks require gitleaks and scan staged changes before a commit and outgoing history before a push. A clean scan does not replace manual privacy review.
 

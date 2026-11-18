@@ -28,6 +28,7 @@ The current release supports single TV episodes from direct Telegram video/docum
 - [Glossary](docs/glossary.md) — project terminology and state names.
 - [Roadmap](ROADMAP.md) — committed direction and ideas still under exploration.
 - [Contributing](CONTRIBUTING.md) — current contributor workflow and repository safety rules.
+- [Development](docs/development.md) — running the development stack in fake or real mode.
 - [Testing](docs/testing.md) — automated and manual verification paths.
 - [Manual testing](docs/manual-testing.md) — checks that use real Telegram or Sonarr instances.
 
