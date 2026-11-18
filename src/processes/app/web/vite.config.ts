@@ -7,6 +7,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Dev-only: the `app` process itself owns APP_PORT via src/platform/config/app-env.ts.
 const appPort = process.env.APP_PORT ?? "4000";
+// docker-compose.dev.yml points this at the `app` service; native `npm run dev:app-web` keeps the local default.
+const apiProxyTarget = process.env.APP_WEB_API_PROXY_TARGET ?? `http://127.0.0.1:${appPort}`;
 
 export default defineConfig({
   root: __dirname,
@@ -17,7 +19,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/api": `http://127.0.0.1:${appPort}`,
+      "/api": apiProxyTarget,
     },
   },
 });
