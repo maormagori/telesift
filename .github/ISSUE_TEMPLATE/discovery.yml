@@ -1,0 +1,30 @@
+name: Discovery
+description: A problem or idea that still has open questions.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are public. Use synthetic placeholders; never include credentials, sessions, real chat/channel/message IDs, message text, media filenames, private paths, or personal deployment details.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: The problem or idea.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it matters
+    validations:
+      required: true
+  - type: textarea
+    id: known-context
+    attributes:
+      label: Known context
+      description: Relevant docs, code, issues, and constraints already known.
+  - type: textarea
+    id: open-questions
+    attributes:
+      label: Open questions
+      description: Decisions needed before this can become a Task.

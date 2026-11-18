@@ -1,0 +1,59 @@
+name: Task
+description: Decision-complete work that can start now.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are public. Use synthetic placeholders; never include credentials, sessions, real chat/channel/message IDs, message text, media filenames, private paths, or personal deployment details.
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What the task delivers, in one or two sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Doc sections to read first (for example `docs/architecture.md` § Module boundaries), the relevant existing code, and related issues and pull requests.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What to build, as bullets. Include the decisions already made.
+    validations:
+      required: true
+  - type: textarea
+    id: expected-paths
+    attributes:
+      label: Expected paths
+      description: The paths the task is expected to change. Name any shared contract it may change (ports, SQLite schema or migrations, app-api or telegram-service routes); changing an unnamed shared contract needs a comment on the issue first.
+    validations:
+      required: true
+  - type: textarea
+    id: depends-on
+    attributes:
+      label: Depends on
+      description: Issues that must merge first (also linked as GitHub dependencies), and anything needed from the maintainer. Write "None" if nothing.
+    validations:
+      required: true
+  - type: textarea
+    id: done-when
+    attributes:
+      label: Done when
+      description: Checkable criteria.
+      value: |
+        - [ ]
+        - [ ] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What the task does not cover.
+    validations:
+      required: true

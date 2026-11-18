@@ -23,6 +23,7 @@ function item(overrides = {}) {
     priority: "P2 Normal",
     assignees: [],
     blockedBy: 0,
+    labels: [],
     ...overrides,
   };
 }
@@ -35,15 +36,16 @@ test("uses oldest issue number to break priority ties", () => {
   assert.equal(selectNext([item({ number: 9 }), item({ number: 3 })]).number, 3);
 });
 
-test("excludes non-ready, closed, assigned, and blocked work", () => {
+test("excludes non-ready, closed, assigned, blocked, and needs:user work", () => {
   const selected = selectNext([
     item({ number: 1, status: "Discovery" }),
     item({ number: 2, state: "CLOSED" }),
     item({ number: 3, assignees: ["maormagori"] }),
     item({ number: 4, blockedBy: 1 }),
-    item({ number: 5 }),
+    item({ number: 5, labels: ["needs:user"] }),
+    item({ number: 6 }),
   ]);
-  assert.equal(selected.number, 5);
+  assert.equal(selected.number, 6);
 });
 
 test("returns null when the ready frontier is empty", () => {

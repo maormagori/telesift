@@ -39,9 +39,12 @@ Before every commit, inspect all staged content and run the pre-commit hook. Bef
 
 GitHub Issues are the public work record; the private `TeleSift` GitHub Project is the queue. Use `.agents/skills/manage-project-work` to capture, refine, prioritize, pull, transition, slice, or finish work.
 
-- Never publish an issue or material issue-body rewrite without the user's approval of its sanitized preview.
+- Never publish an issue or material issue-body rewrite without the user's approval of its sanitized preview. The exception is the format-only rewrite before starting work, described below.
 - Do not infer priority; use `P2 Normal` unless the user chooses another value.
 - Respect the workflow states defined by the skill.
+- Every new issue follows the Discovery or Task format defined by the skill and `.github/ISSUE_TEMPLATE/`. Before working on an issue, check that it follows the Task format. If it doesn't, rewrite it into the format before starting work, without changing its requirements or decisions. This rewrite needs no approval.
+- Post questions, assumptions, and decisions as issue comments. Ask before changing a shared contract the issue doesn't name.
+- Open pull requests with `.github/pull_request_template.md`. Agents never merge.
 
 ## Working rules
 

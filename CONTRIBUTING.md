@@ -8,7 +8,7 @@ Start with the [product contract](docs/product.md), [architecture](docs/architec
 
 GitHub Issues are the public work record. The maintainer also uses a private GitHub Project for prioritization, but contributors do not need access to it.
 
-1. Find an open issue or open a focused issue describing the problem and desired outcome.
+1. Find an open issue, or open a focused one with the Discovery issue form. The maintainer turns accepted work into the Task format: goal, context, scope, expected paths, dependencies, done-when criteria, and out of scope.
 2. Comment before starting substantial work and wait for maintainer confirmation that the scope is useful and ready.
 3. Keep one pull request focused on one approved issue or tightly related change.
 4. Never include private Telegram data or personal deployment details in an issue, discussion, commit, test, screenshot, or pull request.
@@ -23,7 +23,7 @@ Requirements:
 - npm.
 - [gitleaks](https://github.com/gitleaks/gitleaks#installing) before committing or pushing.
 
-Fork the repository, clone your fork, and create a descriptive topic branch. Then:
+Fork the repository, clone your fork, and create a topic branch named `<type>/<issue>-<slug>`, for example `fix/42-retry-download`. Then:
 
 ```sh
 npm ci
@@ -67,16 +67,17 @@ Inspect the complete diff and staged files before committing. The tracked hooks 
 
 ## Pull requests
 
-A pull request should:
+Pull requests use the repository's pull request template. A pull request should:
 
-- Link the issue it addresses.
+- Link the issue it addresses with `Closes #<n>`.
 - Explain the user-visible outcome and any important design choice.
 - State which automated and manual checks ran.
 - Call out migrations, configuration changes, compatibility impact, or known follow-up work.
+- Stay within the issue's expected paths, or explain each deviation.
 - Avoid unrelated formatting or generated-file churn.
 - Keep private evidence out of the description, comments, logs, and attachments.
 
-Draft pull requests are welcome when early feedback would prevent wasted work. Respond to review by updating the existing pull request rather than opening replacements.
+Ask questions and record decisions as comments on the issue. Draft pull requests are welcome when early feedback would prevent wasted work. Respond to review by updating the existing pull request rather than opening replacements.
 
 The maintainer decides scope, roadmap fit, and merge timing. An accepted contribution may still need changes to preserve product, architecture, compatibility, or privacy rules.
 
