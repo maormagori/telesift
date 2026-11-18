@@ -12,6 +12,7 @@ Use these sources in order:
 - [docs/glossary.md](docs/glossary.md) — canonical terminology and states.
 - [ROADMAP.md](ROADMAP.md) — committed direction and exploratory ideas.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contributor workflow.
+- [docs/development.md](docs/development.md) — development stack modes and commands.
 - [docs/testing.md](docs/testing.md) — automated and manual test boundaries.
 - [docs/manual-testing.md](docs/manual-testing.md) — credentialed integration checks.
 
@@ -59,6 +60,16 @@ GitHub Issues are the public work record; the private `TeleSift` GitHub Project 
 - Before adding defensive behavior not already required by the product contract, explain the concrete failure or security motivation and get approval.
 - When changing code, inspect related paths and documentation for consistency.
 - Current year: 2026.
+
+## Running the stack
+
+Run TeleSift through the commands in [docs/development.md](docs/development.md).
+
+- Use fake mode (`npm run stack:up`) by default.
+- Switch to real mode (`npm run stack:up -- --real`) only when the task needs real data or the user asks for it.
+- Never use `--own-telegram` without the user's approval.
+- Never start a real `telegram-service` other than through these commands.
+- Run `npm run stack:down` when the work is finished or abandoned.
 
 ## Architecture discipline
 

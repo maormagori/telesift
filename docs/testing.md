@@ -23,7 +23,11 @@ npm run build
 
 `npm test` runs Vitest once. `npm run build` compiles the TypeScript processes and builds the React application.
 
-To run the whole stack in Docker with fake Telegram and no credentials, use `npm run stack:up` and open the address `npm run stack:url` prints (dev login `admin` / `telesift-dev`). `npm run stack:down -- -v` removes the worktree's stack and data.
+## Running the stack
+
+End-to-end checks, browser checks, and previews run on the development stack, never on processes started by hand. [Development](development.md) covers its commands and modes. In short, `npm run stack:up` starts the checkout's stack in fake mode with no credentials, `npm run stack:url` prints the UI address (dev login `admin` / `telesift-dev`), and `npm run stack:down -- -v` removes the stack and its data. Real mode, for checks against a real Telegram account, uses the shared stack described there.
+
+The native `npm run dev:*` processes are only for working on a single process against the fake adapters. They aren't an end-to-end path, because each native process reads one `.env` with every secret in it and a native `telegram-service` can't see the shared stack's singleton lock.
 
 ## Test layers
 
@@ -53,7 +57,7 @@ Extend this test when a change affects the full product path and cannot be prove
 
 ### Credentialed manual tests
 
-[Manual testing](manual-testing.md) covers behavior that requires a real Telegram account, browser, or Sonarr instance. It is intentionally separate because its inputs and output may be private.
+[Manual testing](manual-testing.md) covers behavior that requires a real Telegram account, browser, or Sonarr instance. It runs on the stack in real mode. It is intentionally separate because its inputs and output may be private.
 
 Run only the sections relevant to the change. Keep `.env`, session strings, Telegram identifiers, captions, filenames, downloaded media, screenshots, Sonarr logs, and local paths out of commits and public discussions. Summarize a successful check without copying private evidence.
 
