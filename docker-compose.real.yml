@@ -1,0 +1,55 @@
+# Real-mode overlay for docker-compose.yml plus docker-compose.dev.yml, applied by
+# `npm run stack:up -- --real`. The worktree runs no telegram-service; app and the workers
+# that call Telegram use the shared one from docker-compose.shared.yml over the external
+# telesift-shared network, so no worktree container receives Telegram credentials.
+# Start the shared stack first with `npm run stack:shared:up`.
+
+x-shared-telegram: &shared-telegram
+  TELEGRAM_SERVICE_URL: http://telesift-telegram-service:${TELEGRAM_SERVICE_PORT:-4001}
+
+# app reports the staging directory download-worker writes, and the shared test Sonarr
+# mounts the same volume at the same path. Each worktree writes to its own subdirectory.
+x-shared-staging: &shared-staging
+  DOWNLOAD_STAGING_DIRECTORY: /staging/${COMPOSE_PROJECT_NAME}
+
+services:
+  # Kept in the model only under a profile that is never enabled, so it never starts.
+  telegram-service:
+    profiles: [worktree-telegram-service]
+
+  ingestion-worker:
+    environment: *shared-telegram
+    networks: [default, shared]
+    depends_on: !override
+      migrate:
+        condition: service_completed_successfully
+
+  download-worker:
+    environment:
+      <<: [*shared-telegram, *shared-staging]
+    volumes:
+      - staging:/staging
+    networks: [default, shared]
+    depends_on: !override
+      migrate:
+        condition: service_completed_successfully
+
+  app:
+    environment:
+      <<: [*shared-telegram, *shared-staging]
+    volumes:
+      - staging:/staging
+    networks: [default, shared]
+    depends_on: !override
+      migrate:
+        condition: service_completed_successfully
+
+networks:
+  shared:
+    name: telesift-shared
+    external: true
+
+volumes:
+  staging:
+    name: telesift-shared-staging
+    external: true
