@@ -4,7 +4,7 @@ TeleSift is a self-hosted service that turns video files shared in authorized Te
 
 It signs in through a dedicated Telegram user account, indexes channels already visible to that account, extracts TV episode metadata from message context, and exposes approved releases through Torznab and a qBittorrent-compatible download API. Sonarr can search those releases, ask TeleSift to fetch the selected Telegram file, track progress, and import it from a staging directory.
 
-> **Status: pre-alpha.** The core Telegram-to-Sonarr pipeline and operator UI are implemented and testable, but TeleSift is not production-ready. Series identity can still produce unsafe matches ([#51](https://github.com/maormagori/telesift/issues/51), [#54](https://github.com/maormagori/telesift/issues/54)), and Sonarr cannot reliably find non-English releases until cross-language identity resolution is implemented ([#55](https://github.com/maormagori/telesift/issues/55)).
+> **Status: pre-alpha.** The core Telegram-to-Sonarr pipeline and operator UI are implemented and testable, but TeleSift is not production-ready. Series identity can still split one show into duplicates across scripts, and Sonarr cannot reliably find non-English releases until cross-language identity resolution is implemented ([#55](https://github.com/maormagori/telesift/issues/55)).
 
 Use TeleSift only with sources and content you are authorized to access.
 

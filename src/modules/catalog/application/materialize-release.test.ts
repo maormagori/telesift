@@ -140,7 +140,7 @@ const BASE_INPUT = {
 };
 
 describe("materializeRelease", () => {
-  it("creates a new series/alias and a pending_review release when there is no local match", async () => {
+  it("creates a new series/alias and auto-approves a confident release when there is no local match", async () => {
     const seriesAliasRepo = createFakeSeriesAliasRepo();
     const materializeRelease = createMaterializeRelease({
       seriesRepo: createFakeSeriesRepo(),
@@ -153,7 +153,7 @@ describe("materializeRelease", () => {
 
     const result = await materializeRelease({ ...BASE_INPUT, extraction: baseExtraction() });
 
-    expect(result.release.reviewState).toBe("pending_review");
+    expect(result.release.reviewState).toBe("approved");
     expect(result.release.seriesId).not.toBeNull();
     expect((await seriesAliasRepo.listAll())).toHaveLength(1);
   });

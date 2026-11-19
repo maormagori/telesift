@@ -119,7 +119,6 @@ export function createMaterializeRelease(deps: MaterializeReleaseDeps) {
 
     const reviewState = decideInitialReviewState({
       extraction: input.extraction,
-      isNewSeriesCandidate: seriesMatch.isNewCandidate,
       seriesTitleGrounded: grounding.grounded,
       crossCheckOk,
       autoIndexEnabled: deps.autoIndexEnabled,

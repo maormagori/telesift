@@ -84,9 +84,9 @@ Telegram text is untrusted input, not instructions to the model. Video bytes and
 
 The model cannot verify its own answer. A release may be auto-approved only when the application confirms all required signals: TV classification, an `index` recommendation, no ambiguities, agreement between deterministic facts and extracted season and episode, and a trustworthy series match. A series match is trustworthy only when the observed title is grounded -- found verbatim in the message text or filename, not merely asserted by the model -- before it is used to match or create a series. Resolution is derived deterministically from the video's own dimensions, not extracted by the model, so it plays no part in this cross-check.
 
-Anything short of that enters `pending_review` and stays hidden from Sonarr. Manual edits and decisions create immutable revisions. Later automatic extraction must not overwrite manually verified data without an explicit operator action.
+A series being new is not uncertainty. Channels publish shows Sift has not seen before, and a confident release with a grounded title creates its series and auto-approves without operator involvement. Review is for extractions the pipeline cannot resolve, such as an unclear classification, conflicting episode facts, or an ungrounded title.
 
-The current series-verification gate does not fully enforce this rule; [#51](https://github.com/maormagori/telesift/issues/51) tracks the correction.
+Anything short of that enters `pending_review` and stays hidden from Sonarr. Manual edits and decisions create immutable revisions. Later automatic extraction must not overwrite manually verified data without an explicit operator action.
 
 ### Search output is deterministic
 
