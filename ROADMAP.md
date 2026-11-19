@@ -18,18 +18,18 @@ This is a working foundation, not a release-ready product. Real-account testing 
 
 ## Horizon 1: Make the core trustworthy
 
-**Outcome:** a normal Sonarr search can find the intended release across languages, and no unverified or corrupted series identity reaches Sonarr automatically.
+**Outcome:** a normal Sonarr search can find the intended release across languages, no low-confidence or corrupted series identity reaches Sonarr automatically, and confident releases of new series index without a human.
 
 Work in this horizon centers on:
 
 - Repairing inconsistent, invalid, and duplicate series identities found in real data.
-- Making human verification of a series meaningful to the automatic approval gate.
+- Reserving human review for extractions the pipeline is unsure about, not for series it has not seen before.
 - Resolving series through a stable external identity and importing useful translated aliases, so Sonarr's title and Telegram's title meet at the same series.
 - Rechecking already-materialized releases affected by unsafe identity behavior.
 - Completing Telegram edit, deletion, forum-topic, availability, and singleton guarantees where implementation still falls short of the product rules.
 - Improving extraction retries and calibration using sanitized evidence rather than loosening the review gate.
 
-The principal tracked blockers are [#51](https://github.com/maormagori/telesift/issues/51), [#54](https://github.com/maormagori/telesift/issues/54), and [#55](https://github.com/maormagori/telesift/issues/55).
+The principal tracked blocker is [#55](https://github.com/maormagori/telesift/issues/55).
 
 ## Horizon 2: Ship a dependable self-hosted product
 

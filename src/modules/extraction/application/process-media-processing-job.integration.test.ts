@@ -218,14 +218,14 @@ describe("processMediaProcessingJob (pipeline integration)", () => {
     expect(second.release?.episode).toBe(9);
   });
 
-  it("creates a new candidate series and forces pending_review when no local alias matches", async () => {
+  it("creates a new candidate series and auto-approves a confident release when no local alias matches", async () => {
     const deps = wireDeps(kysely, () => CONFIDENT_EPISODE_RESULT);
     const mediaAssetId = await seedMediaAsset(deps);
 
     const outcome = await deps.processJob(mediaAssetId, 5000);
     expect(outcome.kind).toBe("processed");
     if (outcome.kind !== "processed") throw new Error("unreachable");
-    expect(outcome.release?.reviewState).toBe("pending_review");
+    expect(outcome.release?.reviewState).toBe("approved");
     expect(outcome.release?.seriesId).not.toBeNull();
 
     const aliases = await deps.seriesAliasRepo.listAll();

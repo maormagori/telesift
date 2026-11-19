@@ -17,14 +17,13 @@ function baseExtraction(overrides: Partial<ExtractionResult> = {}): ExtractionRe
 
 const CONFIDENT_INPUT = {
   extraction: baseExtraction(),
-  isNewSeriesCandidate: false,
   seriesTitleGrounded: true,
   crossCheckOk: true,
   autoIndexEnabled: true,
 };
 
 describe("decideInitialReviewState", () => {
-  it("auto-approves a confident, unambiguous, matched-series extraction", () => {
+  it("auto-approves a confident, unambiguous extraction with a grounded series title", () => {
     expect(decideInitialReviewState(CONFIDENT_INPUT)).toBe("approved");
   });
 
@@ -51,10 +50,6 @@ describe("decideInitialReviewState", () => {
         extraction: baseExtraction({ ambiguities: ["filename and caption disagree on season"] }),
       }),
     ).toBe("pending_review");
-  });
-
-  it("sends a newly auto-created series candidate to pending_review", () => {
-    expect(decideInitialReviewState({ ...CONFIDENT_INPUT, isNewSeriesCandidate: true })).toBe("pending_review");
   });
 
   it("sends a mechanical cross-check conflict to pending_review", () => {
