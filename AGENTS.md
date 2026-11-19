@@ -69,6 +69,7 @@ Run TeleSift through the commands in [docs/development.md](docs/development.md).
 - Switch to real mode (`npm run stack:up -- --real`) only when the task needs real data or the user asks for it.
 - Never use `--own-telegram` without the user's approval.
 - Never start a real `telegram-service` other than through these commands.
+- Follow [Agents and automated checks](docs/development.md#agents-and-automated-checks): set `TELESIFT_CONFIG_DIR` on every command that reads the operator configuration, check the shared stack with a throwaway fake configuration, and touch only the Docker resources you created.
 - Run `npm run stack:down` when the work is finished or abandoned.
 
 ## Architecture discipline
