@@ -29,6 +29,8 @@ Work in this horizon centers on:
 - Completing Telegram edit, deletion, forum-topic, availability, and singleton guarantees where implementation still falls short of the product rules.
 - Improving extraction retries and calibration using sanitized evidence rather than loosening the review gate.
 
+**Exit check:** an end-to-end Sonarr search, grab, download, and import passes for both a same-language and a cross-language fixture release, run against the test Sonarr without the real Telegram account ([#78](https://github.com/maormagori/telesift/issues/78)).
+
 The principal tracked blocker is [#55](https://github.com/maormagori/telesift/issues/55).
 
 ## Horizon 2: Ship a dependable self-hosted product
