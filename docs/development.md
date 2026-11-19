@@ -171,6 +171,49 @@ npm run stack:down -- -v
 
 Use `npm ci` in setup, not `npm install`, so the lockfile stays unchanged. The Compose project name comes from the worktree's path, so the hooks need no per-worktree configuration. Setup starts fake mode. Switching a worktree to real mode is a deliberate step, not part of setup.
 
+## Agents and automated checks
+
+Coding agents and scripts often run each command in a fresh shell, and they usually have no access to the real account. These rules keep their checks away from the operator's Telegram session and the host's other stacks.
+
+### Set the configuration directory on every command
+
+An `export` doesn't carry over to the next command when each command runs in a new shell. A command that reads the operator configuration without `TELESIFT_CONFIG_DIR` falls back to the default directory, which on an operator's machine holds the real credentials. Set it on the same command line every time:
+
+```sh
+TELESIFT_CONFIG_DIR=/path/to/throwaway-config npm run stack:shared:up
+```
+
+This applies to `stack:shared:up`, `stack:shared:restore`, `stack:up -- --own-telegram`, and any `docker compose -f docker-compose.shared.yml` command.
+
+### Check the shared stack and the switch without the real account
+
+Use a throwaway configuration directory that selects the fake adapter and holds synthetic credentials:
+
+```sh
+mkdir -p /path/to/throwaway-config
+printf 'TELEGRAM_ADAPTER=fake\n' > /path/to/throwaway-config/.env
+printf 'TELEGRAM_API_ID=12345\nTELEGRAM_API_HASH=placeholder-hash\nTELEGRAM_SESSION=placeholder-session\n' \
+  > /path/to/throwaway-config/.env.telegram
+```
+
+Before starting anything with it:
+
+1. Confirm the resolved paths point into that directory:
+
+   ```sh
+   TELESIFT_CONFIG_DIR=/path/to/throwaway-config docker compose -f docker-compose.shared.yml config telegram-service
+   ```
+
+2. Run `docker ps -a --filter name=telesift-telegram-service`. If that container already exists, it may be the operator's real connection. Stop and ask instead of replacing it.
+
+Delete the throwaway directory when the check is done. Leave checks against the real account to the operator.
+
+### Touch only what you created
+
+- Run `docker ps -a`, `docker volume ls`, and `docker network ls` before starting, and keep the output.
+- Stop and remove only the containers, volumes, networks, and images your checks created. Never stop, remove, or prune other stacks, even stopped ones.
+- When the checks are done, tear down with `npm run stack:down -- -v` and, if you started it, `npm run stack:shared:down -- -v`. Compare the listings with the ones you kept to confirm nothing of yours remains.
+
 ## Native processes without Docker
 
 Each process can also run natively with `tsx watch`, for example `npm run dev:app` or `npm run dev:telegram-service`. Run `npm run dev:migrate` first. Native processes read one `.env` in the checkout, based on [`.env.example`](../.env.example), and each process loads all of it. Telegram credentials there reach every process, as `.env.example` describes.
